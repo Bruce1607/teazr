@@ -2,7 +2,7 @@
   'use strict';
 
   const COOLDOWN_KEY = 'teazr_cooldown';
-  const COOLDOWN_MS = 12 * 60 * 60 * 1000;
+  const COOLDOWN_MS = 5 * 60 * 1000;
 
   const QUESTIONS = [
     { q: 'When you see someone you\'re attracted to, you typically…', a: ['Make direct eye contact', 'Glance and look away', 'Stay in your lane'] },
@@ -83,15 +83,23 @@
     if (remaining > 0) {
       const msg = formatCooldown(remaining);
       render(`
-        <h1 class="start-title">TEAZR</h1>
-        <p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${msg}.</p>
-        <p class="footer">Made for fun.</p>
+        <div class="start-screen">
+          <h1 class="start-title">TEAZR</h1>
+          <p class="start-tagline">Discover your flirt energy</p>
+          <p class="start-sub">If you dare.</p>
+          <p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${msg}.</p>
+          <p class="footer">Made for fun.</p>
+        </div>
       `);
       return;
     }
     render(`
-      <h1 class="start-title">TEAZR</h1>
-      <button class="btn-start" onclick="TEAZR.start()">START</button>
+      <div class="start-screen">
+        <h1 class="start-title">TEAZR</h1>
+        <p class="start-tagline">Discover your flirt energy</p>
+        <p class="start-sub">If you dare.</p>
+        <button class="btn-start" onclick="TEAZR.start()">START</button>
+      </div>
     `);
   }
 
