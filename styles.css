@@ -188,6 +188,33 @@ body {
   max-width: 280px;
 }
 
+.share-name-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+  text-align: left;
+}
+
+.share-name-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.share-name-row input {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+}
+
+.share-name-row input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .btn-primary {
   padding: 0.9rem 1.5rem;
   font-size: 1rem;

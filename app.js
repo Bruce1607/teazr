@@ -70,6 +70,7 @@
   let lastResultData = null;
   let challengeBannerData = null;
   let isShareEntry = false;
+  let shareName = '';
 
   function render(html) {
     document.getElementById('app').innerHTML = html;
@@ -286,12 +287,25 @@
     return { flirt, mystery, replyRisk };
   }
 
+  function getSanitizedShareName(val) {
+    const s = sanitizeName(typeof val === 'string' ? val : '');
+    return s.length > 0 ? s : null;
+  }
+
+  function updateShareName(raw) {
+    shareName = getSanitizedShareName(raw) || '';
+    if (lastResultData) {
+      lastShareUrl = makeShareUrl(lastResultData, shareName || null);
+    }
+  }
+
   function renderResultScreen(data, fromQuiz) {
     const flirtLabel = labelForScore(data.flirt, FLIRT_LABELS);
     const mysteryLabel = labelForScore(data.mystery, MYSTERY_LABELS);
     const replyRiskLabel = labelForScore(data.replyRisk, REPLY_RISK_LABELS);
     const oneLiner = getOneLiner(data.flirt, data.mystery, data.replyRisk);
 
+    shareName = '';
     lastShareUrl = makeShareUrl(data);
     lastResultData = { ...data, flirtLabel, mysteryLabel, replyRiskLabel, oneLiner };
 
@@ -310,6 +324,11 @@
         <p class="screenshot-title">Screenshot & share</p>
         <p class="screenshot-sub">Post it or send it to someone 😉</p>
         <div class="result-actions">
+          <div class="share-name-row">
+            <label class="share-name-label" for="teazr-name-input">Your name (optional)</label>
+            <input type="text" id="teazr-name-input" placeholder="e.g., Bruno" maxlength="20"
+                   oninput="TEAZR.updateShareName(this.value)" />
+          </div>
           <button class="btn-primary" id="btn-whatsapp" onclick="TEAZR.shareWhatsApp()">Share on WhatsApp</button>
           <button class="btn-secondary" id="btn-copy" onclick="TEAZR.copyLink()">Copy link</button>
           <button class="btn-tertiary" onclick="TEAZR.restart()">Try again</button>
@@ -329,63 +348,30 @@
   }
 
   function copyLink() {
-    if (!lastShareUrl) return;
-    copyResultUrl(lastShareUrl).then(() => {
+    if (!lastResultData) return;
+    const input = document.getElementById('teazr-name-input');
+    const name = input ? getSanitizedShareName(input.value) : null;
+    const url = makeShareUrl(lastResultData, name);
+    lastShareUrl = url;
+    copyResultUrl(url).then(() => {
       showToast('Link copied');
       emitAnalytics('copy_link_clicked');
     }).catch(() => showToast('Could not copy'));
   }
 
-  function showNameModal(cb) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-      <div class="modal-box">
-        <p class="modal-label">Your name (optional)</p>
-        <input type="text" id="teazr-name-input" placeholder="Enter your name" maxlength="20" />
-        <div class="modal-buttons">
-          <button class="btn-secondary" id="teazr-modal-skip">Skip</button>
-          <button class="btn-primary" id="teazr-modal-continue">Continue</button>
-        </div>
-      </div>
-    `;
-    overlay.onclick = (e) => {
-      if (e.target === overlay) {
-        overlay.remove();
-        cb(null);
-      }
-    };
-    document.body.appendChild(overlay);
-    const input = overlay.querySelector('#teazr-name-input');
-    overlay.querySelector('#teazr-modal-skip').onclick = () => {
-      overlay.remove();
-      cb(null);
-    };
-    overlay.querySelector('#teazr-modal-continue').onclick = () => {
-      const raw = (input && input.value) || '';
-      const name = sanitizeName(raw);
-      overlay.remove();
-      cb(name.length > 0 ? name : null);
-    };
-    setTimeout(() => input && input.focus(), 50);
-  }
-
   function shareWhatsApp() {
     if (!lastResultData) return;
-    showNameModal((name) => {
-      if (name) {
-        lastShareUrl = makeShareUrl(lastResultData, name);
-      } else {
-        lastShareUrl = makeShareUrl(lastResultData);
-      }
-      const { flirtLabel, mysteryLabel, replyRiskLabel, oneLiner } = lastResultData;
-      const shareText = name
-        ? `TEAZR: ${name} got ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${lastShareUrl}`
-        : `TEAZR: ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${lastShareUrl}`;
-      const encoded = encodeURIComponent(shareText);
-      window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
-      emitAnalytics('share_whatsapp_clicked');
-    });
+    const input = document.getElementById('teazr-name-input');
+    const name = input ? getSanitizedShareName(input.value) : null;
+    const url = makeShareUrl(lastResultData, name);
+    lastShareUrl = url;
+    const { flirtLabel, mysteryLabel, replyRiskLabel, oneLiner } = lastResultData;
+    const shareText = name
+      ? `TEAZR: ${name} got ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${url}`
+      : `TEAZR: ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${url}`;
+    const encoded = encodeURIComponent(shareText);
+    window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
+    emitAnalytics('share_whatsapp_clicked');
   }
 
   function start() {
@@ -401,6 +387,7 @@
     lastResultData = null;
     challengeBannerData = null;
     isShareEntry = false;
+    shareName = '';
     const cleanUrl = (typeof window !== 'undefined' && window.location)
       ? (window.location.origin + (window.location.pathname || '/'))
       : SHARE_BASE + '/';
@@ -417,7 +404,8 @@
     restart,
     answer,
     copyLink,
-    shareWhatsApp
+    shareWhatsApp,
+    updateShareName
   };
 
   function isValidSeedData(data) {
