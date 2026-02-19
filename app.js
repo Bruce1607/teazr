@@ -87,16 +87,26 @@
     } catch (_) { return null; }
   }
 
-  function makeShareUrl(data) {
-    const payload = { f: data.flirt, m: data.mystery, r: data.replyRisk };
-    const seed = toUrlSafeBase64(JSON.stringify(payload));
-    return SHARE_BASE + '/?s=' + encodeURIComponent(seed);
+  function makeShareUrl(data, name) {
+    const shortSeed = data.flirt + '.' + data.mystery + '.' + data.replyRisk;
+    let url = SHARE_BASE + '/?s=' + shortSeed;
+    if (name && name.length > 0) {
+      url += '&n=' + encodeURIComponent(name);
+    }
+    return url;
   }
 
   function parseSeedParam() {
     const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const s = params.get('s');
     if (!s) return null;
+    const dotMatch = String(s).match(/^(\d+)\.(\d+)\.(\d+)$/);
+    if (dotMatch) {
+      const flirt = Math.max(0, Math.min(100, parseInt(dotMatch[1], 10)));
+      const mystery = Math.max(0, Math.min(100, parseInt(dotMatch[2], 10)));
+      const replyRisk = Math.max(0, Math.min(100, parseInt(dotMatch[3], 10)));
+      return { flirt, mystery, replyRisk };
+    }
     const decoded = fromUrlSafeBase64(decodeURIComponent(s));
     if (!decoded) return null;
     try {
@@ -110,6 +120,21 @@
       }
       return null;
     } catch (_) { return null; }
+  }
+
+  function parseNameParam() {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const n = params.get('n');
+    if (!n || typeof n !== 'string') return null;
+    const sanitized = sanitizeName(n);
+    return sanitized && sanitized.length > 0 ? sanitized : null;
+  }
+
+  function sanitizeName(input) {
+    if (typeof input !== 'string') return '';
+    let s = input.trim();
+    if (s.length > 20) s = s.slice(0, 20);
+    return s.replace(/[^a-zA-Z0-9 _]/g, '');
   }
 
   function emitAnalytics(eventName) {
@@ -215,7 +240,7 @@
     ).join('');
     const banner = challengeBannerData ? `
       <div class="challenge-banner">
-        Someone got: ${challengeBannerData.flirtLabel} / ${challengeBannerData.mysteryLabel} / ${challengeBannerData.replyRiskLabel} — can you beat it?
+        ${challengeBannerData.sharerName ? challengeBannerData.sharerName + ' got' : 'Someone got'}: ${challengeBannerData.flirtLabel} / ${challengeBannerData.mysteryLabel} / ${challengeBannerData.replyRiskLabel} — can you beat it?
       </div>
     ` : '';
     render(`
@@ -311,13 +336,56 @@
     }).catch(() => showToast('Could not copy'));
   }
 
+  function showNameModal(cb) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <p class="modal-label">Your name (optional)</p>
+        <input type="text" id="teazr-name-input" placeholder="Enter your name" maxlength="20" />
+        <div class="modal-buttons">
+          <button class="btn-secondary" id="teazr-modal-skip">Skip</button>
+          <button class="btn-primary" id="teazr-modal-continue">Continue</button>
+        </div>
+      </div>
+    `;
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+        cb(null);
+      }
+    };
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#teazr-name-input');
+    overlay.querySelector('#teazr-modal-skip').onclick = () => {
+      overlay.remove();
+      cb(null);
+    };
+    overlay.querySelector('#teazr-modal-continue').onclick = () => {
+      const raw = (input && input.value) || '';
+      const name = sanitizeName(raw);
+      overlay.remove();
+      cb(name.length > 0 ? name : null);
+    };
+    setTimeout(() => input && input.focus(), 50);
+  }
+
   function shareWhatsApp() {
-    if (!lastShareUrl || !lastResultData) return;
-    const { flirt, flirtLabel, mystery, mysteryLabel, replyRisk, replyRiskLabel, oneLiner } = lastResultData;
-    const shareText = `TEAZR results: Flirt ${flirtLabel} (${flirt}), Mystery ${mysteryLabel} (${mystery}), Reply Risk ${replyRiskLabel} (${replyRisk}). ${oneLiner} Try yours: ${lastShareUrl}`;
-    const encoded = encodeURIComponent(shareText);
-    window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
-    emitAnalytics('share_whatsapp_clicked');
+    if (!lastResultData) return;
+    showNameModal((name) => {
+      if (name) {
+        lastShareUrl = makeShareUrl(lastResultData, name);
+      } else {
+        lastShareUrl = makeShareUrl(lastResultData);
+      }
+      const { flirtLabel, mysteryLabel, replyRiskLabel, oneLiner } = lastResultData;
+      const shareText = name
+        ? `TEAZR: ${name} got ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${lastShareUrl}`
+        : `TEAZR: ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${lastShareUrl}`;
+      const encoded = encodeURIComponent(shareText);
+      window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
+      emitAnalytics('share_whatsapp_clicked');
+    });
   }
 
   function start() {
@@ -360,10 +428,12 @@
     const seedData = parseSeedParam();
     if (seedData && isValidSeedData(seedData)) {
       isShareEntry = true;
+      const sharerName = parseNameParam();
       challengeBannerData = {
         flirtLabel: labelForScore(seedData.flirt, FLIRT_LABELS),
         mysteryLabel: labelForScore(seedData.mystery, MYSTERY_LABELS),
-        replyRiskLabel: labelForScore(seedData.replyRisk, REPLY_RISK_LABELS)
+        replyRiskLabel: labelForScore(seedData.replyRisk, REPLY_RISK_LABELS),
+        sharerName: sharerName
       };
     }
     showStart();
