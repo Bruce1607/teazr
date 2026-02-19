@@ -160,7 +160,9 @@ body {
 .result-oneliner {
   font-size: 1rem;
   font-style: italic;
-  opacity: 0.9;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: #B7A7FF;
   margin-bottom: 1rem;
 }
 
