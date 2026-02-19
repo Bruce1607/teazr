@@ -43,14 +43,14 @@
       'You\'re basically a green light.'
     ],
     ruleD: [
-      'Balanced vibe. Perfectly mid.',
-      'Goldilocks zone. Not too much, not too little.',
-      'Middle of the road. Surprisingly versatile.'
+      'Balanced vibes. Play it cool.',
+      'You\'re in the sweet spot.',
+      'Nothing wild… yet.'
     ],
     default: [
-      'Your energy speaks for itself.',
-      'A vibe worth sharing.',
-      'Results don\'t lie.'
+      'Chaos potential detected.',
+      'This is a vibe. Trust it.',
+      'Proceed with playful confidence.'
     ]
   };
 
