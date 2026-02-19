@@ -69,6 +69,7 @@
   let lastShareUrl = '';
   let lastResultData = null;
   let challengeBannerData = null;
+  let isShareEntry = false;
 
   function render(html) {
     document.getElementById('app').innerHTML = html;
@@ -167,7 +168,18 @@
   }
 
   function showStart() {
-    challengeBannerData = null;
+    if (!isShareEntry) challengeBannerData = null;
+    if (isShareEntry) {
+      render(`
+        <div class="start-screen">
+          <h1 class="start-title">TEAZR</h1>
+          <p class="start-tagline">Discover your flirt energy</p>
+          <p class="start-sub">If you dare.</p>
+          <button class="btn-start" onclick="TEAZR.start()">START</button>
+        </div>
+      `);
+      return;
+    }
     const remaining = getCooldownRemaining();
     if (remaining > 0) {
       const msg = formatCooldown(remaining);
@@ -320,6 +332,7 @@
     lastShareUrl = '';
     lastResultData = null;
     challengeBannerData = null;
+    isShareEntry = false;
     const cleanUrl = (typeof window !== 'undefined' && window.location)
       ? (window.location.origin + (window.location.pathname || '/'))
       : SHARE_BASE + '/';
@@ -346,6 +359,7 @@
   function init() {
     const seedData = parseSeedParam();
     if (seedData && isValidSeedData(seedData)) {
+      isShareEntry = true;
       challengeBannerData = {
         flirtLabel: labelForScore(seedData.flirt, FLIRT_LABELS),
         mysteryLabel: labelForScore(seedData.mystery, MYSTERY_LABELS),
