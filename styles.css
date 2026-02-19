@@ -148,13 +148,18 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-bottom: 1rem;
 }
 
 .result-line {
   font-size: 0.95rem;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.9);
+}
+
+.result-oneliner-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin: 12px 0 12px 0;
 }
 
 .result-oneliner {

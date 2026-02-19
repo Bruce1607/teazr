@@ -318,6 +318,7 @@
             <p class="result-line">Mystery Level: ${data.mystery} — ${mysteryLabel}</p>
             <p class="result-line">Reply Risk: ${data.replyRisk} — ${replyRiskLabel}</p>
           </div>
+          <hr class="result-oneliner-divider" />
           <p class="result-oneliner">${oneLiner}</p>
           <p class="result-footer">Try yours: teazr.app</p>
         </div>
