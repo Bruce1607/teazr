@@ -5,7 +5,7 @@
 }
 
 body {
-  background: #000;
+  background: #0a0a0a;
   color: #fff;
   font-family: system-ui, -apple-system, sans-serif;
   min-height: 100vh;
@@ -13,13 +13,25 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 3rem 2rem;
+  padding: 2rem;
 }
 
 #app {
   width: 100%;
-  max-width: 420px;
+  max-width: 520px;
   text-align: center;
+}
+
+/* Challenge banner */
+.challenge-banner {
+  background: rgba(180, 50, 50, 0.15);
+  border: 1px solid rgba(180, 50, 50, 0.4);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 /* Start screen */
@@ -107,70 +119,119 @@ body {
 }
 
 /* Result screen */
-.result-section {
-  margin-bottom: 2rem;
+.result-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
 }
 
-.result-label {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
-  margin-bottom: 0.25rem;
+.screenshot-card {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 1.75rem;
 }
 
-.result-value {
-  font-size: 2.5rem;
-  font-weight: 700;
+.result-wordmark {
+  font-size: 1.75rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  font-style: italic;
+  transform: skewX(-4deg);
+  margin-bottom: 1.25rem;
 }
 
-.result-value.accent {
-  color: rgba(200, 60, 60, 0.95);
+.result-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
-.result-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-top: 0.5rem;
-}
-
-.result-tagline {
+.result-line {
   font-size: 0.95rem;
-  opacity: 0.85;
-  margin-top: 0.25rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.result-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 1.5rem 0;
+.result-oneliner {
+  font-size: 1rem;
+  font-style: italic;
+  opacity: 0.9;
+  margin-bottom: 1rem;
+}
+
+.result-footer {
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+.screenshot-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.screenshot-sub {
+  font-size: 0.9rem;
+  opacity: 0.7;
+  margin-top: -0.25rem;
 }
 
 .result-actions {
   display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-  margin-top: 1.5rem;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 280px;
 }
 
-.btn-share-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
+.btn-primary {
+  padding: 0.9rem 1.5rem;
+  font-size: 1rem;
+  background: #25D366;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-primary:hover {
+  background: #20bd5a;
+}
+
+.btn-secondary {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
   background: transparent;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 
-.btn-share-sm:hover {
-  border-color: rgba(180, 50, 50, 0.5);
+.btn-secondary:hover {
+  border-color: rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.05);
 }
 
-.btn-share-sm:disabled {
-  opacity: 0.8;
-  cursor: default;
+.btn-tertiary {
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.btn-tertiary:hover {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .cooldown-msg {
@@ -180,29 +241,31 @@ body {
   line-height: 1.5;
 }
 
-.btn-retry {
-  margin-top: 1.5rem;
-  padding: 0.75rem 2rem;
-  font-size: 0.95rem;
-  background: transparent;
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-retry:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-a.btn-retry {
-  display: inline-block;
-  text-decoration: none;
-  color: inherit;
-}
-
 .footer {
   margin-top: 2.5rem;
   font-size: 0.8rem;
   opacity: 0.5;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(1rem);
+  padding: 0.6rem 1.2rem;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
