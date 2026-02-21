@@ -538,8 +538,12 @@
           <h1 class="start-title">TEAZR</h1>
           <p class="start-tagline">Discover your flirt energy</p>
           <p class="start-sub">If you dare.</p>
-          <button class="btn-start" onclick="TEAZR.start()">START</button>
-          <a href="/teaze" class="btn-teaze-link" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          <button class="btn-start" onclick="TEAZR.start()">TAKE THE QUIZ</button>
+          <p class="quiz-helper">6 questions · 30 seconds</p>
+          <div class="teaze-secondary-wrap">
+            <span class="teaze-secondary-label">DM TOOL</span>
+            <a href="/teaze" class="btn-teaze-secondary" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          </div>
         </div>
       `);
       return;
@@ -553,7 +557,10 @@
           <p class="start-tagline">Discover your flirt energy</p>
           <p class="start-sub">If you dare.</p>
           <p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${msg}.</p>
-          <a href="/teaze" class="btn-teaze-link" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          <div class="teaze-secondary-wrap">
+            <span class="teaze-secondary-label">DM TOOL</span>
+            <a href="/teaze" class="btn-teaze-secondary" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          </div>
           <p class="footer">Made for fun.</p>
         </div>
       `);
@@ -564,8 +571,12 @@
         <h1 class="start-title">TEAZR</h1>
         <p class="start-tagline">Discover your flirt energy</p>
         <p class="start-sub">If you dare.</p>
-        <button class="btn-start" onclick="TEAZR.start()">START</button>
-        <a href="/teaze" class="btn-teaze-link" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+        <button class="btn-start" onclick="TEAZR.start()">TAKE THE QUIZ</button>
+        <p class="quiz-helper">6 questions · 30 seconds</p>
+        <div class="teaze-secondary-wrap">
+          <span class="teaze-secondary-label">DM TOOL</span>
+          <a href="/teaze" class="btn-teaze-secondary" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+        </div>
       </div>
     `);
   }
