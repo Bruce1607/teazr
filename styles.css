@@ -13,7 +13,7 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 2rem;
+  padding: 1rem 1.25rem;
 }
 
 #app {
@@ -43,34 +43,105 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 2rem 0;
+  padding: 1.25rem 0;
 }
 
 .start-title {
-  font-size: 2.25rem;
+  font-size: 2rem;
   font-weight: 400;
   letter-spacing: 0.2em;
   font-style: italic;
   transform: skewX(-4deg);
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
-.start-tagline {
-  font-size: 1.05rem;
-  font-weight: 300;
-  letter-spacing: 0.08em;
-  opacity: 0.9;
-  margin-bottom: 0.5rem;
-}
-
-.start-sub {
-  font-size: 0.85rem;
-  font-weight: 300;
+.start-headline {
+  font-size: 1.15rem;
+  font-weight: 600;
   letter-spacing: 0.06em;
-  opacity: 0.5;
-  margin-bottom: 2.5rem;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 0.4rem;
 }
 
+.start-subline {
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+  margin-bottom: 1.25rem;
+}
+
+/* Primary CTA: SEND A TEAZE (red accent) */
+.btn-primary-teaze {
+  display: inline-block;
+  padding: 1rem 2.5rem;
+  font-size: 1.1rem;
+  background: rgba(255, 255, 255, 0.03);
+  color: #fff;
+  border: 1px solid rgba(180, 45, 45, 0.65);
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-primary-teaze:hover {
+  background: rgba(180, 45, 45, 0.10);
+  border-color: rgba(180, 45, 45, 0.95);
+  color: #fff;
+}
+
+/* Secondary CTA: TAKE THE QUIZ (neutral outline) */
+.quiz-secondary-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin-top: 0.75rem;
+}
+
+.btn-quiz-secondary {
+  padding: 0.6rem 1.5rem;
+  font-size: 0.9rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-quiz-secondary:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.quiz-helper {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.quiz-fun-note {
+  font-size: 0.78rem;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+}
+
+@media (max-width: 380px) {
+  .start-screen {
+    padding: 0.75rem 0;
+  }
+  .start-title { font-size: 1.75rem; margin-bottom: 0.5rem; }
+  .start-headline { font-size: 1rem; }
+  .start-subline { font-size: 0.85rem; margin-bottom: 1rem; }
+  .btn-primary-teaze { padding: 0.9rem 2rem; font-size: 1rem; }
+}
+
+/* Legacy – keep for teaze screen back navigation etc. */
 .btn-start {
   padding: 1rem 3rem;
   font-size: 1.1rem;
@@ -85,28 +156,6 @@ body {
   background: rgba(180, 45, 45, 0.10);
   border-color: rgba(180, 45, 45, 0.95);
   color: #fff;
-}
-
-.quiz-helper {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.45);
-  margin-top: 0.5rem;
-  margin-bottom: 1.25rem;
-}
-
-/* Secondary CTA (Send a Teaze) */
-.teaze-secondary-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.5rem;
-}
-
-.teaze-secondary-label {
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
-  color: rgba(255, 255, 255, 0.45);
 }
 
 .btn-teaze-secondary {
@@ -316,12 +365,12 @@ body {
 .cooldown-msg {
   font-size: 1rem;
   opacity: 0.85;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   line-height: 1.5;
 }
 
 .footer {
-  margin-top: 2.5rem;
+  margin-top: 1.25rem;
   font-size: 0.8rem;
   opacity: 0.5;
 }

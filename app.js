@@ -536,13 +536,13 @@
       render(`
         <div class="start-screen">
           <h1 class="start-title">TEAZR</h1>
-          <p class="start-tagline">Discover your flirt energy</p>
-          <p class="start-sub">If you dare.</p>
-          <button class="btn-start" onclick="TEAZR.start()">TAKE THE QUIZ</button>
-          <p class="quiz-helper">6 questions · 30 seconds</p>
-          <div class="teaze-secondary-wrap">
-            <span class="teaze-secondary-label">DM TOOL</span>
-            <a href="/teaze" class="btn-teaze-secondary" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
+          <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
+          <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          <div class="quiz-secondary-wrap">
+            <button type="button" class="btn-quiz-secondary" onclick="TEAZR.start()">TAKE THE QUIZ</button>
+            <p class="quiz-helper">6 questions · 30 seconds</p>
+            <p class="quiz-fun-note">Discover your flirt energy. If you dare.</p>
           </div>
         </div>
       `);
@@ -554,12 +554,12 @@
       render(`
         <div class="start-screen">
           <h1 class="start-title">TEAZR</h1>
-          <p class="start-tagline">Discover your flirt energy</p>
-          <p class="start-sub">If you dare.</p>
+          <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
+          <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
           <p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${msg}.</p>
-          <div class="teaze-secondary-wrap">
-            <span class="teaze-secondary-label">DM TOOL</span>
-            <a href="/teaze" class="btn-teaze-secondary" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          <div class="quiz-secondary-wrap">
+            <p class="quiz-fun-note">Discover your flirt energy. If you dare.</p>
           </div>
           <p class="footer">Made for fun.</p>
         </div>
@@ -569,13 +569,13 @@
     render(`
       <div class="start-screen">
         <h1 class="start-title">TEAZR</h1>
-        <p class="start-tagline">Discover your flirt energy</p>
-        <p class="start-sub">If you dare.</p>
-        <button class="btn-start" onclick="TEAZR.start()">TAKE THE QUIZ</button>
-        <p class="quiz-helper">6 questions · 30 seconds</p>
-        <div class="teaze-secondary-wrap">
-          <span class="teaze-secondary-label">DM TOOL</span>
-          <a href="/teaze" class="btn-teaze-secondary" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+        <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
+        <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
+        <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+        <div class="quiz-secondary-wrap">
+          <button type="button" class="btn-quiz-secondary" onclick="TEAZR.start()">TAKE THE QUIZ</button>
+          <p class="quiz-helper">6 questions · 30 seconds</p>
+          <p class="quiz-fun-note">Discover your flirt energy. If you dare.</p>
         </div>
       </div>
     `);
