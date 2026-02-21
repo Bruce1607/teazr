@@ -351,3 +351,157 @@ body {
   gap: 0.75rem;
   justify-content: flex-end;
 }
+
+/* Teaze screen */
+.teaze-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem 0;
+  text-align: center;
+}
+
+.teaze-back {
+  align-self: flex-start;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.teaze-back:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.teaze-title {
+  font-size: 1.75rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  font-style: italic;
+  transform: skewX(-4deg);
+}
+
+.teaze-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.teaze-selector-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.teaze-selector-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.teaze-selector-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.teaze-selector-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.teaze-selector-btn:hover {
+  border-color: rgba(180, 50, 50, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.teaze-selector-btn.active {
+  border-color: rgba(180, 50, 50, 0.8);
+  background: rgba(180, 50, 50, 0.2);
+}
+
+.teaze-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 480px;
+}
+
+.teaze-message-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  text-align: left;
+}
+
+.teaze-message-text {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 1rem;
+}
+
+.btn-teaze-copy {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  background: rgba(180, 50, 50, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-teaze-copy:hover {
+  background: rgba(180, 50, 50, 0.85);
+}
+
+.btn-teaze-copy:active {
+  transform: scale(0.98);
+}
+
+.btn-teaze-new {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btn-teaze-new:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-teaze-link {
+  display: inline-block;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: rgba(180, 50, 50, 0.9);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(180, 50, 50, 0.5);
+  padding-bottom: 0.15rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-teaze-link:hover {
+  color: rgba(180, 50, 50, 1);
+  border-color: rgba(180, 50, 50, 0.8);
+}

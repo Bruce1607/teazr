@@ -5,6 +5,14 @@
   const COOLDOWN_MS = 5 * 60 * 1000;
   const SHARE_BASE = 'https://teazr.app';
 
+  const TEAZE_MOMENTS = ['START', 'KEEP GOING', 'RECONNECT', 'CLOSE KINDLY'];
+  const TEAZE_STYLES = ['PLAYFUL', 'CLASSY'];
+  const TEAZE_RECENT_MAX = 12;
+
+  let teazeMoment = 'START';
+  let teazeStyle = 'PLAYFUL';
+  let teazeCurrentIds = [];
+
   const QUESTIONS = [
     { q: 'When you see someone you\'re attracted to, you typically…', a: ['Make direct eye contact', 'Glance and look away', 'Stay in your lane'] },
     { q: 'Your approach to getting attention is…', a: ['Bold and confident', 'Subtle hints', 'Hope they notice'] },
@@ -148,6 +156,16 @@
     }
   }
 
+  function sendTeazeEvent(event, payload) {
+    if (typeof window === 'undefined') return;
+    const body = JSON.stringify({ ...payload, event, ts: Date.now() });
+    fetch('/api/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body
+    }).catch(function() {});
+  }
+
   function showToast(msg) {
     const toast = document.createElement('div');
     toast.className = 'toast';
@@ -193,6 +211,131 @@
     return h ? `${h}h ${m}m` : `${m}m`;
   }
 
+  function teazeBucketKey(moment, style) {
+    return 'teaze:' + String(moment).replace(/\s+/g, '_') + ':' + String(style);
+  }
+
+  function getTeazeRecentIds(bucketKey) {
+    try {
+      const raw = localStorage.getItem(bucketKey);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+  }
+
+  function saveTeazeRecentIds(bucketKey, ids) {
+    try {
+      localStorage.setItem(bucketKey, JSON.stringify(ids.slice(-TEAZE_RECENT_MAX)));
+    } catch (_) {}
+  }
+
+  function pickTeazeMessages(moment, style, excludeIds) {
+    const key = teazeBucketKey(moment, style);
+    const bucket = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[key];
+    if (!bucket || !bucket.length) return [];
+
+    const recentIds = getTeazeRecentIds(key);
+    const exclude = new Set(excludeIds || []);
+    const preferred = bucket.filter(function(m) {
+      return !exclude.has(m.id) && !recentIds.includes(m.id);
+    });
+    const fallback = bucket.filter(function(m) { return !exclude.has(m.id); });
+    const pool = preferred.length >= 3 ? preferred : fallback;
+
+    const shuffled = pool.slice().sort(function() { return Math.random() - 0.5; });
+    return shuffled.slice(0, 3);
+  }
+
+  function showTeazeScreen() {
+    const bucketKey = teazeBucketKey(teazeMoment, teazeStyle);
+    const messages = pickTeazeMessages(teazeMoment, teazeStyle, teazeCurrentIds);
+    teazeCurrentIds = messages.map(function(m) { return m.id; });
+    saveTeazeRecentIds(bucketKey, getTeazeRecentIds(bucketKey).concat(teazeCurrentIds));
+
+    const momentOpts = TEAZE_MOMENTS.map(function(m) {
+      const val = m.replace(/\s+/g, '_');
+      return `<button class="teaze-selector-btn ${teazeMoment === m ? 'active' : ''}" onclick="TEAZR.setTeazeMoment('${m.replace(/'/g, "\\'")}')">${m}</button>`;
+    }).join('');
+    const styleOpts = TEAZE_STYLES.map(function(s) {
+      return `<button class="teaze-selector-btn ${teazeStyle === s ? 'active' : ''}" onclick="TEAZR.setTeazeStyle('${s}')">${s}</button>`;
+    }).join('');
+
+    const msgBlocks = messages.map(function(m) {
+      return `
+        <div class="teaze-message-card" data-id="${m.id}">
+          <p class="teaze-message-text">${m.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          <button class="btn-teaze-copy" onclick="TEAZR.copyTeazeMessage('${teazeMoment.replace(/'/g, "\\'")}', '${teazeStyle}', ${m.id})">COPY</button>
+        </div>
+      `;
+    }).join('');
+
+    render(`
+      <div class="teaze-screen">
+        <a href="/" class="teaze-back" onclick="event.preventDefault();TEAZR.navigateHome();">← Back</a>
+        <h1 class="teaze-title">SEND A TEAZE</h1>
+        <div class="teaze-selectors">
+          <div class="teaze-selector-group">
+            <label class="teaze-selector-label">Moments</label>
+            <div class="teaze-selector-btns">${momentOpts}</div>
+          </div>
+          <div class="teaze-selector-group">
+            <label class="teaze-selector-label">Styles</label>
+            <div class="teaze-selector-btns">${styleOpts}</div>
+          </div>
+        </div>
+        <div class="teaze-messages">${msgBlocks}</div>
+        <button class="btn-teaze-new" onclick="TEAZR.newTeazeOptions()">NEW OPTIONS</button>
+      </div>
+    `);
+  }
+
+  function setTeazeMoment(m) {
+    teazeMoment = m;
+    teazeCurrentIds = [];
+    showTeazeScreen();
+  }
+
+  function setTeazeStyle(s) {
+    teazeStyle = s;
+    teazeCurrentIds = [];
+    showTeazeScreen();
+  }
+
+  function copyTeazeMessage(moment, style, messageId) {
+    const key = teazeBucketKey(moment, style);
+    const bucket = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[key];
+    const msg = bucket && bucket.find(function(m) { return m.id === messageId; });
+    if (!msg) return;
+    copyResultUrl(msg.text).then(function() {
+      showToast('Copied');
+      sendTeazeEvent('copy_clicked', { moment, style, messageId });
+    }).catch(function() { showToast('Could not copy'); });
+  }
+
+  function newTeazeOptions() {
+    sendTeazeEvent('new_options_clicked', { moment: teazeMoment, style: teazeStyle });
+    showTeazeScreen();
+  }
+
+  function navigateToTeaze() {
+    if (window.history && window.history.pushState) {
+      window.history.pushState({}, '', '/teaze');
+    } else {
+      window.location.pathname = '/teaze';
+    }
+    showTeazeScreen();
+  }
+
+  function navigateHome() {
+    if (window.history && window.history.pushState) {
+      window.history.pushState({}, '', '/');
+    } else {
+      window.location.href = '/';
+    }
+    init();
+  }
+
   function showStart() {
     if (!isShareEntry) challengeBannerData = null;
     if (isShareEntry) {
@@ -202,6 +345,7 @@
           <p class="start-tagline">Discover your flirt energy</p>
           <p class="start-sub">If you dare.</p>
           <button class="btn-start" onclick="TEAZR.start()">START</button>
+          <a href="/teaze" class="btn-teaze-link" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
         </div>
       `);
       return;
@@ -215,6 +359,7 @@
           <p class="start-tagline">Discover your flirt energy</p>
           <p class="start-sub">If you dare.</p>
           <p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${msg}.</p>
+          <a href="/teaze" class="btn-teaze-link" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
           <p class="footer">Made for fun.</p>
         </div>
       `);
@@ -226,6 +371,7 @@
         <p class="start-tagline">Discover your flirt energy</p>
         <p class="start-sub">If you dare.</p>
         <button class="btn-start" onclick="TEAZR.start()">START</button>
+        <a href="/teaze" class="btn-teaze-link" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
       </div>
     `);
   }
@@ -406,14 +552,34 @@
     answer,
     copyLink,
     shareWhatsApp,
-    updateShareName
+    updateShareName,
+    navigateToTeaze,
+    navigateHome,
+    setTeazeMoment,
+    setTeazeStyle,
+    copyTeazeMessage,
+    newTeazeOptions
   };
 
   function isValidSeedData(data) {
     return data && typeof data.flirt === 'number' && typeof data.mystery === 'number' && typeof data.replyRisk === 'number';
   }
 
+  function getPath() {
+    const p = typeof window !== 'undefined' && window.location ? window.location.pathname || '/' : '/';
+    return p.replace(/\/+$/, '') || '/';
+  }
+
+  function isTeazeRoute() {
+    return getPath() === '/teaze';
+  }
+
   function init() {
+    if (isTeazeRoute()) {
+      sendTeazeEvent('teaz_opened', {});
+      showTeazeScreen();
+      return;
+    }
     const seedData = parseSeedParam();
     if (seedData && isValidSeedData(seedData)) {
       isShareEntry = true;
@@ -426,6 +592,17 @@
       };
     }
     showStart();
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('popstate', function() {
+      if (isTeazeRoute()) {
+        sendTeazeEvent('teaz_opened', {});
+        showTeazeScreen();
+      } else {
+        init();
+      }
+    });
   }
 
   init();
