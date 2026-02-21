@@ -275,7 +275,7 @@
     }).join('');
 
     render(`
-      <div class="teaze-screen">
+      <div class="teaze-screen" data-teaze-root>
         <a href="/" class="teaze-back" data-teaze-back>← Back</a>
         <h1 class="teaze-title">SEND A TEAZE</h1>
         <div class="teaze-selectors">
@@ -323,7 +323,10 @@
   }
 
   function setupTeazeClickDelegation() {
-    document.addEventListener('click', function handleTeazeClick(e) {
+    const app = document.getElementById('app');
+    if (!app) return;
+    app.addEventListener('click', function handleTeazeClick(e) {
+      if (!app.querySelector('[data-teaze-root]')) return;
       const target = e.target;
       const momentBtn = target.closest('[data-moment]');
       const styleBtn = target.closest('[data-style]');
