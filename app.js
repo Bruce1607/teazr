@@ -396,10 +396,12 @@
     copyResultUrl(msg.text).then(function() {
       var btn = document.querySelector('[data-action="copy"][data-id="' + messageId + '"]');
       if (btn) {
-        btn.textContent = 'COPIED ✓';
+        btn.textContent = 'COPIED';
+        btn.classList.add('copied');
         btn.disabled = true;
         setTimeout(function() {
           btn.textContent = 'COPY';
+          btn.classList.remove('copied');
           btn.disabled = false;
         }, 1000);
       }
@@ -432,10 +434,12 @@
     copyResultUrl(url).then(function() {
       var btn = document.querySelector('[data-action="copy-link"]');
       if (btn) {
-        btn.textContent = 'LINK COPIED ✓';
+        btn.textContent = 'COPIED';
+        btn.classList.add('copied');
         btn.disabled = true;
         setTimeout(function() {
           btn.textContent = 'COPY LINK';
+          btn.classList.remove('copied');
           btn.disabled = false;
         }, 1000);
       }

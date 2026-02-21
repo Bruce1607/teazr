@@ -584,6 +584,10 @@ body {
   transform: scale(0.98);
 }
 
+.btn-teaze-copy.copied {
+  background: rgba(60, 140, 80, 0.5);
+}
+
 .btn-teaze-new {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
@@ -651,6 +655,10 @@ body {
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+}
+
+.btn-teaze-copy-link.copied {
+  background: rgba(60, 140, 80, 0.5);
 }
 
 .btn-teaze-copy-link:hover {
