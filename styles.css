@@ -534,8 +534,8 @@ body {
 
 .teaze-copy-hint {
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin: -0.25rem 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  margin: 0.4rem 0 -0.6rem;
   letter-spacing: 0.02em;
 }
 
@@ -613,15 +613,16 @@ body {
 .teaze-share-row {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.5rem;
   width: 100%;
   max-width: 480px;
+  padding-top: 1.25rem;
 }
 
 .teaze-share-hint {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 0.15rem;
+  margin: 0 0 -0.15rem;
   letter-spacing: 0.02em;
 }
 
