@@ -141,6 +141,17 @@ body {
   .btn-primary-teaze { padding: 0.9rem 2rem; font-size: 1rem; }
 }
 
+@media (max-width: 480px) {
+  .teaze-copy-hint,
+  .teaze-share-hint {
+    display: block;
+    opacity: 1;
+    font-size: 0.8rem;
+    margin-top: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
+}
+
 /* Legacy – keep for teaze screen back navigation etc. */
 .btn-start {
   padding: 1rem 3rem;
@@ -535,8 +546,11 @@ body {
 .teaze-copy-hint {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.68);
-  margin: 0.4rem 0 -0.6rem;
+  margin: 0.5rem 0 0.25rem;
   letter-spacing: 0.02em;
+  flex-shrink: 0;
+  visibility: visible;
+  min-height: 1.2em;
 }
 
 .teaze-messages {
@@ -626,8 +640,11 @@ body {
 .teaze-share-hint {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 -0.15rem;
+  margin: 0.25rem 0 0.35rem;
   letter-spacing: 0.02em;
+  flex-shrink: 0;
+  visibility: visible;
+  min-height: 1.2em;
 }
 
 .btn-teaze-whatsapp {
