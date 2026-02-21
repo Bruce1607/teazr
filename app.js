@@ -12,6 +12,7 @@
   let teazeMoment = 'START';
   let teazeStyle = 'PLAYFUL';
   let teazeCurrentIds = [];
+  let teazeSeedBannerData = null;
 
   const QUESTIONS = [
     { q: 'When you see someone you\'re attracted to, you typically…', a: ['Make direct eye contact', 'Glance and look away', 'Stay in your lane'] },
@@ -158,7 +159,14 @@
 
   function sendTeazeEvent(event, payload) {
     if (typeof window === 'undefined') return;
-    const body = JSON.stringify({ ...payload, event, ts: Date.now() });
+    const body = JSON.stringify({
+      event: event,
+      moment: payload.moment || null,
+      style: payload.style || null,
+      messageId: payload.messageId != null ? payload.messageId : null,
+      ts: Date.now(),
+      seedPresent: payload.seedPresent === true
+    });
     fetch('/api/event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -251,9 +259,74 @@
     return shuffled.slice(0, 3);
   }
 
+  function makeTeazeShareUrl() {
+    var obj = { m: teazeMoment, s: teazeStyle, i: teazeCurrentIds.slice(0, 3) };
+    if (teazeMoment || teazeStyle) {
+      obj.l = (teazeMoment || '') + '/' + (teazeStyle || '');
+    }
+    var json = JSON.stringify(obj);
+    var enc = toUrlSafeBase64(json);
+    return SHARE_BASE + '/teaze?s=' + encodeURIComponent(enc);
+  }
+
+  function getTeazeShareText(url) {
+    if (teazeSeedBannerData) {
+      return 'Someone sent a Teaze (' + (teazeSeedBannerData.moment || '') + '/' + (teazeSeedBannerData.style || '') + '). Try yours: ' + url;
+    }
+    return 'Try \'Send a Teaze\' on Teazr: ' + (url || 'teazr.app/teaze');
+  }
+
+  function buildTeazeSeedBanner() {
+    if (!teazeSeedBannerData) return '';
+    var mom = (teazeSeedBannerData.moment || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    var sty = (teazeSeedBannerData.style || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return '<div class="teaze-seed-banner" data-teaze-banner>' +
+      'Someone sent: ' + mom + ' / ' + sty + ' — pick yours ' +
+      '<button type="button" class="teaze-banner-hide" data-action="hide-banner" aria-label="Hide">×</button>' +
+      '</div>';
+  }
+
+  function parseTeazeSeedParam() {
+    var params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    var s = params.get('s');
+    if (!s || typeof s !== 'string') return null;
+    try {
+      var decoded = fromUrlSafeBase64(decodeURIComponent(s));
+      if (!decoded) return null;
+      var data = JSON.parse(decoded);
+      if (!data || typeof data.m !== 'string' || typeof data.s !== 'string') return null;
+      var moment = String(data.m).trim();
+      var style = String(data.s).trim();
+      if (!TEAZE_MOMENTS.includes(moment) || !TEAZE_STYLES.includes(style)) return null;
+      return {
+        moment: moment,
+        style: style,
+        ids: Array.isArray(data.i) ? data.i.slice(0, 3) : [],
+        label: typeof data.l === 'string' ? data.l : (moment + '/' + style)
+      };
+    } catch (_) { return null; }
+  }
+
+  var teazeEmptyRetries = 0;
+
   function showTeazeScreen() {
     const bucketKey = teazeBucketKey(teazeMoment, teazeStyle);
-    const messages = pickTeazeMessages(teazeMoment, teazeStyle, teazeCurrentIds);
+    var messages = pickTeazeMessages(teazeMoment, teazeStyle, teazeCurrentIds);
+    if (!messages || messages.length === 0) {
+      teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
+      render(`
+        <div class="teaze-screen" data-teaze-root>
+          <a href="/" class="teaze-back" data-teaze-back>← Back</a>
+          <h1 class="teaze-title">SEND A TEAZE</h1>
+          <p class="teaze-loading">Loading…</p>
+        </div>
+      `);
+      if (teazeEmptyRetries < 10) {
+        setTimeout(showTeazeScreen, 50);
+      }
+      return;
+    }
+    teazeEmptyRetries = 0;
     teazeCurrentIds = messages.map(function(m) { return m.id; });
     saveTeazeRecentIds(bucketKey, getTeazeRecentIds(bucketKey).concat(teazeCurrentIds));
 
@@ -274,8 +347,11 @@
       `;
     }).join('');
 
+    const bannerHtml = teazeSeedBannerData ? buildTeazeSeedBanner() : '';
+
     render(`
       <div class="teaze-screen" data-teaze-root>
+        ${bannerHtml}
         <a href="/" class="teaze-back" data-teaze-back>← Back</a>
         <h1 class="teaze-title">SEND A TEAZE</h1>
         <div class="teaze-selectors">
@@ -289,6 +365,10 @@
           </div>
         </div>
         <div class="teaze-messages">${msgBlocks}</div>
+        <div class="teaze-share-row">
+          <button type="button" class="btn-teaze-whatsapp" data-action="share-whatsapp">SHARE ON WHATSAPP</button>
+          <button type="button" class="btn-teaze-copy-link" data-action="copy-link">COPY LINK</button>
+        </div>
         <button type="button" class="btn-teaze-new" data-action="new-options">NEW OPTIONS</button>
       </div>
     `);
@@ -312,14 +392,53 @@
     const msg = bucket && bucket.find(function(m) { return m.id === messageId; });
     if (!msg) return;
     copyResultUrl(msg.text).then(function() {
-      showToast('Copied');
+      var btn = document.querySelector('[data-action="copy"][data-id="' + messageId + '"]');
+      if (btn) {
+        btn.textContent = 'COPIED ✓';
+        btn.disabled = true;
+        setTimeout(function() {
+          btn.textContent = 'COPY';
+          btn.disabled = false;
+        }, 1000);
+      }
       sendTeazeEvent('copy_clicked', { moment, style, messageId });
     }).catch(function() { showToast('Could not copy'); });
   }
 
   function newTeazeOptions() {
+    var btn = document.querySelector('[data-action="new-options"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'REFRESHING…';
+    }
     sendTeazeEvent('new_options_clicked', { moment: teazeMoment, style: teazeStyle });
-    showTeazeScreen();
+    setTimeout(function() {
+      showTeazeScreen();
+    }, 280);
+  }
+
+  function shareTeazeWhatsApp() {
+    var url = makeTeazeShareUrl();
+    var text = getTeazeShareText(url);
+    var encoded = encodeURIComponent(text);
+    window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
+    sendTeazeEvent('share_whatsapp_clicked', { moment: teazeMoment, style: teazeStyle });
+  }
+
+  function copyTeazeLink() {
+    var url = makeTeazeShareUrl();
+    copyResultUrl(url).then(function() {
+      var btn = document.querySelector('[data-action="copy-link"]');
+      if (btn) {
+        btn.textContent = 'LINK COPIED ✓';
+        btn.disabled = true;
+        setTimeout(function() {
+          btn.textContent = 'COPY LINK';
+          btn.disabled = false;
+        }, 1000);
+      }
+      sendTeazeEvent('copy_link_clicked', { moment: teazeMoment, style: teazeStyle });
+    }).catch(function() { showToast('Could not copy'); });
   }
 
   function setupTeazeClickDelegation() {
@@ -362,15 +481,34 @@
           }
           return;
         }
+        if (action === 'share-whatsapp') {
+          shareTeazeWhatsApp();
+          return;
+        }
+        if (action === 'copy-link') {
+          copyTeazeLink();
+          return;
+        }
+        if (action === 'hide-banner') {
+          teazeSeedBannerData = null;
+          showTeazeScreen();
+          return;
+        }
       }
     });
   }
 
   function initTeaze() {
-    sendTeazeEvent('teaz_opened', {});
+    var seed = parseTeazeSeedParam();
+    teazeSeedBannerData = seed;
+    sendTeazeEvent('teaz_opened', { seedPresent: !!seed });
     teazeMoment = 'START';
     teazeStyle = 'PLAYFUL';
     teazeCurrentIds = [];
+    if (seed) {
+      teazeMoment = seed.moment;
+      teazeStyle = seed.style;
+    }
     showTeazeScreen();
   }
 

@@ -502,6 +502,94 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.btn-teaze-new:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.teaze-loading {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+.teaze-share-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 480px;
+}
+
+.btn-teaze-whatsapp {
+  padding: 0.9rem 1.5rem;
+  font-size: 1rem;
+  background: #25D366;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-teaze-whatsapp:hover {
+  background: #20bd5a;
+}
+
+.btn-teaze-copy-link {
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btn-teaze-copy-link:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-teaze-copy-link:disabled {
+  opacity: 0.8;
+  cursor: default;
+}
+
+.teaze-seed-banner {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(180, 50, 50, 0.15);
+  border: 1px solid rgba(180, 50, 50, 0.4);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.teaze-banner-hide {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: none;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  flex-shrink: 0;
+}
+
+.teaze-banner-hide:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+
 .btn-teaze-link {
   display: inline-block;
   margin-top: 1rem;

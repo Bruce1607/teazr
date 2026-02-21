@@ -1,6 +1,6 @@
 /**
  * Message library for Send A Teaze.
- * 8 buckets (4 moments × 2 styles), 12 messages each = 96 messages.
+ * 8 buckets (4 moments × 2 styles), 18+ messages each = 144+ total.
  * Bucket key: moment:style (e.g. START:PLAYFUL)
  * Tone: confident-kind, short, no manipulation/ultimatums/humiliation.
  * PLAYFUL: max 1 emoji. CLASSY: 0 emoji preferred.
@@ -21,7 +21,13 @@
       { id: 8, text: 'Hi. You\'ve occupied my thoughts today.' },
       { id: 9, text: 'Reaching out because why not? Hope your day\'s good.' },
       { id: 10, text: 'I\'ve been thinking about you. That\'s all.' },
-      { id: 11, text: 'Sending you a little hello.' }
+      { id: 11, text: 'Sending you a little hello.' },
+      { id: 12, text: 'Just wanted to check in.' },
+      { id: 13, text: 'You came to mind. Had to reach out.' },
+      { id: 14, text: 'Hi. Hope your day is going well.' },
+      { id: 15, text: 'Thinking of you. That\'s it.' },
+      { id: 16, text: 'Couldn\'t go all day without saying hey.' },
+      { id: 17, text: 'Reaching out. Hope that\'s okay.' }
     ],
     'START:CLASSY': [
       { id: 0, text: 'I hope this finds you well.' },
@@ -35,7 +41,13 @@
       { id: 8, text: 'Sending warm thoughts your way.' },
       { id: 9, text: 'A brief note to say I\'m thinking of you.' },
       { id: 10, text: 'I trust all is well on your end.' },
-      { id: 11, text: 'Hello. I hope this message brings a smile.' }
+      { id: 11, text: 'Hello. I hope this message brings a smile.' },
+      { id: 12, text: 'A small note to say you\'re on my mind.' },
+      { id: 13, text: 'I hope we connect soon.' },
+      { id: 14, text: 'Wishing you well.' },
+      { id: 15, text: 'I wanted to say hello.' },
+      { id: 16, text: 'Thinking of you. I hope all is well.' },
+      { id: 17, text: 'A quiet hello from here.' }
     ],
     'KEEP_GOING:PLAYFUL': [
       { id: 0, text: 'This is fun. Don\'t stop now.' },
@@ -49,7 +61,13 @@
       { id: 8, text: 'You know exactly what you\'re doing.' },
       { id: 9, text: 'Keep me guessing. I don\'t mind.' },
       { id: 10, text: 'This back and forth? I\'m enjoying it.' },
-      { id: 11, text: 'We\'re building something here.' }
+      { id: 11, text: 'We\'re building something here.' },
+      { id: 12, text: 'You make this easy. Keep it up.' },
+      { id: 13, text: 'This vibe? I\'m here for it.' },
+      { id: 14, text: 'Don\'t hold back. I can take it.' },
+      { id: 15, text: 'The best part of my day is talking to you.' },
+      { id: 16, text: 'You\'re keeping things interesting.' },
+      { id: 17, text: 'I like where this is going. No pressure.' }
     ],
     'KEEP_GOING:CLASSY': [
       { id: 0, text: 'I\'m enjoying our conversation.' },
@@ -63,7 +81,13 @@
       { id: 8, text: 'Our connection feels natural.' },
       { id: 9, text: 'I hope we keep talking.' },
       { id: 10, text: 'You make conversation easy.' },
-      { id: 11, text: 'I\'m glad we\'re still in touch.' }
+      { id: 11, text: 'I\'m glad we\'re still in touch.' },
+      { id: 12, text: 'I value our connection.' },
+      { id: 13, text: 'You have a thoughtful way about you.' },
+      { id: 14, text: 'I hope we keep this going.' },
+      { id: 15, text: 'Our chats bring me joy.' },
+      { id: 16, text: 'I appreciate your presence.' },
+      { id: 17, text: 'You keep things refreshing.' }
     ],
     'RECONNECT:PLAYFUL': [
       { id: 0, text: 'Hey stranger. It\'s been a minute.' },
@@ -77,7 +101,13 @@
       { id: 8, text: 'Can we pretend we never drifted? Hi again.' },
       { id: 9, text: 'I owe you a proper catch-up.' },
       { id: 10, text: 'You\'re still someone I want to talk to.' },
-      { id: 11, text: 'Let\'s not let this fade.' }
+      { id: 11, text: 'Let\'s not let this fade.' },
+      { id: 12, text: 'Miss you. Let\'s fix that.' },
+      { id: 13, text: 'Been a minute. You free to chat?' },
+      { id: 14, text: 'I dropped off the map. Sorry. Still here.' },
+      { id: 15, text: 'Wanted to pop back in. Hi again.' },
+      { id: 16, text: 'Life happened. You still matter to me.' },
+      { id: 17, text: 'Can we start over? I\'d like that.' }
     ],
     'RECONNECT:CLASSY': [
       { id: 0, text: 'I\'ve been meaning to reach out.' },
@@ -91,7 +121,13 @@
       { id: 8, text: 'I treasure our connection. Let\'s not lose it.' },
       { id: 9, text: 'I hope this finds you open to reconnecting.' },
       { id: 10, text: 'You crossed my mind. Wanted you to know.' },
-      { id: 11, text: 'I\'d like to close the gap between us.' }
+      { id: 11, text: 'I\'d like to close the gap between us.' },
+      { id: 12, text: 'I\'ve missed our connection.' },
+      { id: 13, text: 'I hope we can find our way back.' },
+      { id: 14, text: 'You\'ve been on my mind. I\'d like to talk.' },
+      { id: 15, text: 'Time apart hasn\'t changed how I feel.' },
+      { id: 16, text: 'I\'d love to hear from you again.' },
+      { id: 17, text: 'Our connection is worth preserving.' }
     ],
     'CLOSE_KINDLY:PLAYFUL': [
       { id: 0, text: 'You\'re great, but I\'m not in the right place for this.' },
@@ -105,7 +141,13 @@
       { id: 8, text: 'Taking a breather. You\'re lovely — that hasn\'t changed.' },
       { id: 9, text: 'I\'m not the right fit right now. Wishing you the best.' },
       { id: 10, text: 'Gotta go, but on good terms. Take care.' },
-      { id: 11, text: 'I respect you too much to string you along. Be well.' }
+      { id: 11, text: 'I respect you too much to string you along. Be well.' },
+      { id: 12, text: 'Honestly? I need to step back. You\'re lovely.' },
+      { id: 13, text: 'Not a fit for me right now. Wishing you well.' },
+      { id: 14, text: 'I need to be real with you. Take care of yourself.' },
+      { id: 15, text: 'Thanks for the good times. Moving on kindly.' },
+      { id: 16, text: 'I\'ve enjoyed it. Time to part ways. Be well.' },
+      { id: 17, text: 'You deserve better. I\'m bowing out gracefully.' }
     ],
     'CLOSE_KINDLY:CLASSY': [
       { id: 0, text: 'I need to be honest with you.' },
@@ -119,7 +161,13 @@
       { id: 8, text: 'I\'ve appreciated our connection. I wish you well.' },
       { id: 9, text: 'I\'m stepping away with respect for you.' },
       { id: 10, text: 'Thank you for your time. I wish you happiness.' },
-      { id: 11, text: 'I trust you\'ll understand. Take care.' }
+      { id: 11, text: 'I trust you\'ll understand. Take care.' },
+      { id: 12, text: 'I must step away. I wish you the best.' },
+      { id: 13, text: 'It\'s not you. I need to move on.' },
+      { id: 14, text: 'I hope we part with mutual respect.' },
+      { id: 15, text: 'Thank you for understanding.' },
+      { id: 16, text: 'I\'m ending this with kindness.' },
+      { id: 17, text: 'You\'ve been wonderful. I wish you well.' }
     ]
   };
 
