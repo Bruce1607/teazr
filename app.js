@@ -364,8 +364,10 @@
             <div class="teaze-selector-btns">${styleOpts}</div>
           </div>
         </div>
+        <p class="teaze-copy-hint">Copy one. Paste in DM.</p>
         <div class="teaze-messages">${msgBlocks}</div>
         <div class="teaze-share-row">
+          <p class="teaze-share-hint">Screenshot & share.</p>
           <button type="button" class="btn-teaze-whatsapp" data-action="share-whatsapp">SHARE ON WHATSAPP</button>
           <button type="button" class="btn-teaze-copy-link" data-action="copy-link">COPY LINK</button>
         </div>

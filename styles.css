@@ -532,6 +532,13 @@ body {
   background: rgba(180, 50, 50, 0.2);
 }
 
+.teaze-copy-hint {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: -0.25rem 0 0;
+  letter-spacing: 0.02em;
+}
+
 .teaze-messages {
   display: flex;
   flex-direction: column;
@@ -609,6 +616,13 @@ body {
   gap: 0.65rem;
   width: 100%;
   max-width: 480px;
+}
+
+.teaze-share-hint {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0 0 0.15rem;
+  letter-spacing: 0.02em;
 }
 
 .btn-teaze-whatsapp {
