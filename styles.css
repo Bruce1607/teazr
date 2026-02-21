@@ -360,6 +360,15 @@ body {
   gap: 1.5rem;
   padding: 2rem 0;
   text-align: center;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.teaze-screen button,
+.teaze-screen a {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .teaze-back {

@@ -215,6 +215,10 @@
     return 'teaze:' + String(moment).replace(/\s+/g, '_') + ':' + String(style);
   }
 
+  function teazeMessagesKey(moment, style) {
+    return String(moment).replace(/\s+/g, '_') + ':' + String(style);
+  }
+
   function getTeazeRecentIds(bucketKey) {
     try {
       const raw = localStorage.getItem(bucketKey);
@@ -231,11 +235,11 @@
   }
 
   function pickTeazeMessages(moment, style, excludeIds) {
-    const key = teazeBucketKey(moment, style);
-    const bucket = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[key];
+    const msgKey = teazeMessagesKey(moment, style);
+    const bucket = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[msgKey];
     if (!bucket || !bucket.length) return [];
 
-    const recentIds = getTeazeRecentIds(key);
+    const recentIds = getTeazeRecentIds(teazeBucketKey(moment, style));
     const exclude = new Set(excludeIds || []);
     const preferred = bucket.filter(function(m) {
       return !exclude.has(m.id) && !recentIds.includes(m.id);
@@ -254,25 +258,25 @@
     saveTeazeRecentIds(bucketKey, getTeazeRecentIds(bucketKey).concat(teazeCurrentIds));
 
     const momentOpts = TEAZE_MOMENTS.map(function(m) {
-      const val = m.replace(/\s+/g, '_');
-      return `<button class="teaze-selector-btn ${teazeMoment === m ? 'active' : ''}" onclick="TEAZR.setTeazeMoment('${m.replace(/'/g, "\\'")}')">${m}</button>`;
+      const escaped = m.replace(/'/g, '&#39;');
+      return `<button type="button" class="teaze-selector-btn ${teazeMoment === m ? 'active' : ''}" data-moment="${escaped}">${m}</button>`;
     }).join('');
     const styleOpts = TEAZE_STYLES.map(function(s) {
-      return `<button class="teaze-selector-btn ${teazeStyle === s ? 'active' : ''}" onclick="TEAZR.setTeazeStyle('${s}')">${s}</button>`;
+      return `<button type="button" class="teaze-selector-btn ${teazeStyle === s ? 'active' : ''}" data-style="${s}">${s}</button>`;
     }).join('');
 
     const msgBlocks = messages.map(function(m) {
       return `
         <div class="teaze-message-card" data-id="${m.id}">
           <p class="teaze-message-text">${m.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-          <button class="btn-teaze-copy" onclick="TEAZR.copyTeazeMessage('${teazeMoment.replace(/'/g, "\\'")}', '${teazeStyle}', ${m.id})">COPY</button>
+          <button type="button" class="btn-teaze-copy" data-action="copy" data-id="${m.id}">COPY</button>
         </div>
       `;
     }).join('');
 
     render(`
       <div class="teaze-screen">
-        <a href="/" class="teaze-back" onclick="event.preventDefault();TEAZR.navigateHome();">← Back</a>
+        <a href="/" class="teaze-back" data-teaze-back>← Back</a>
         <h1 class="teaze-title">SEND A TEAZE</h1>
         <div class="teaze-selectors">
           <div class="teaze-selector-group">
@@ -285,7 +289,7 @@
           </div>
         </div>
         <div class="teaze-messages">${msgBlocks}</div>
-        <button class="btn-teaze-new" onclick="TEAZR.newTeazeOptions()">NEW OPTIONS</button>
+        <button type="button" class="btn-teaze-new" data-action="new-options">NEW OPTIONS</button>
       </div>
     `);
   }
@@ -303,8 +307,8 @@
   }
 
   function copyTeazeMessage(moment, style, messageId) {
-    const key = teazeBucketKey(moment, style);
-    const bucket = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[key];
+    const msgKey = teazeMessagesKey(moment, style);
+    const bucket = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[msgKey];
     const msg = bucket && bucket.find(function(m) { return m.id === messageId; });
     if (!msg) return;
     copyResultUrl(msg.text).then(function() {
@@ -318,13 +322,62 @@
     showTeazeScreen();
   }
 
+  function setupTeazeClickDelegation() {
+    document.addEventListener('click', function handleTeazeClick(e) {
+      const target = e.target;
+      const momentBtn = target.closest('[data-moment]');
+      const styleBtn = target.closest('[data-style]');
+      const actionEl = target.closest('[data-action]');
+      const backLink = target.closest('[data-teaze-back]');
+
+      if (backLink) {
+        e.preventDefault();
+        navigateHome();
+        return;
+      }
+      if (momentBtn) {
+        const m = momentBtn.getAttribute('data-moment');
+        if (m) setTeazeMoment(m.replace(/&#39;/g, "'"));
+        return;
+      }
+      if (styleBtn) {
+        const s = styleBtn.getAttribute('data-style');
+        if (s) setTeazeStyle(s);
+        return;
+      }
+      if (actionEl) {
+        const action = actionEl.getAttribute('data-action');
+        if (action === 'new-options') {
+          newTeazeOptions();
+          return;
+        }
+        if (action === 'copy') {
+          const idRaw = actionEl.getAttribute('data-id');
+          if (idRaw != null) {
+            const messageId = parseInt(idRaw, 10);
+            if (!isNaN(messageId)) copyTeazeMessage(teazeMoment, teazeStyle, messageId);
+          }
+          return;
+        }
+      }
+    });
+  }
+
+  function initTeaze() {
+    sendTeazeEvent('teaz_opened', {});
+    teazeMoment = 'START';
+    teazeStyle = 'PLAYFUL';
+    teazeCurrentIds = [];
+    showTeazeScreen();
+  }
+
   function navigateToTeaze() {
     if (window.history && window.history.pushState) {
       window.history.pushState({}, '', '/teaze');
     } else {
       window.location.pathname = '/teaze';
     }
-    showTeazeScreen();
+    initTeaze();
   }
 
   function navigateHome() {
@@ -576,8 +629,7 @@
 
   function init() {
     if (isTeazeRoute()) {
-      sendTeazeEvent('teaz_opened', {});
-      showTeazeScreen();
+      initTeaze();
       return;
     }
     const seedData = parseSeedParam();
@@ -595,10 +647,10 @@
   }
 
   if (typeof window !== 'undefined') {
+    setupTeazeClickDelegation();
     window.addEventListener('popstate', function() {
       if (isTeazeRoute()) {
-        sendTeazeEvent('teaz_opened', {});
-        showTeazeScreen();
+        initTeaze();
       } else {
         init();
       }
