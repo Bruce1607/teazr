@@ -142,13 +142,35 @@ body {
 }
 
 @media (max-width: 480px) {
-  .teaze-copy-hint,
   .teaze-share-hint {
     display: block;
     opacity: 1;
     font-size: 0.8rem;
     margin-top: 0.4rem;
     margin-bottom: 0.4rem;
+  }
+  .teaze-suggestions-header .teaze-copy-hint {
+    font-size: 0.8rem;
+  }
+  .teaze-message-card {
+    padding: 1.15rem 1.25rem;
+  }
+  .teaze-message-text {
+    font-size: 1.0625rem;
+    margin-bottom: 0.85rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .teaze-messages {
+    gap: 1rem;
+  }
+  .teaze-message-card {
+    padding: 1rem 1.1rem;
+  }
+  .teaze-message-text {
+    font-size: 1rem;
+    line-height: 1.4;
   }
 }
 
@@ -543,10 +565,23 @@ body {
   background: rgba(180, 50, 50, 0.2);
 }
 
+.teaze-suggestions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  gap: 0.75rem;
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+
 .teaze-copy-hint {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.68);
-  margin: 0.5rem 0 0.25rem;
+  margin: 0;
   letter-spacing: 0.02em;
   flex-shrink: 0;
   visibility: visible;
@@ -556,7 +591,7 @@ body {
 .teaze-messages {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
   width: 100%;
   max-width: 480px;
 }
@@ -565,33 +600,37 @@ body {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
-  padding: 1.25rem 1.5rem;
+  padding: 1.35rem 1.5rem;
   text-align: left;
 }
 
 .teaze-message-text {
-  font-size: 1rem;
-  line-height: 1.5;
+  font-size: 1.125rem;
+  line-height: 1.45;
   color: rgba(255, 255, 255, 0.95);
   margin-bottom: 1rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .btn-teaze-copy {
   width: 100%;
-  padding: 1rem 1.5rem;
-  font-size: 1.1rem;
+  min-height: 38px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  background: rgba(180, 50, 50, 0.6);
-  color: #fff;
-  border: none;
+  letter-spacing: 0.08em;
+  background: rgba(160, 55, 55, 0.4);
+  color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(180, 50, 50, 0.35);
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
 }
 
 .btn-teaze-copy:hover {
-  background: rgba(180, 50, 50, 0.85);
+  background: rgba(180, 50, 50, 0.55);
+  border-color: rgba(180, 50, 50, 0.5);
 }
 
 .btn-teaze-copy:active {
@@ -599,28 +638,55 @@ body {
 }
 
 .btn-teaze-copy.copied {
-  background: rgba(60, 140, 80, 0.5);
+  background: rgba(55, 120, 70, 0.4);
+  border-color: rgba(55, 120, 70, 0.4);
 }
 
+.btn-teaze-more {
+  flex-shrink: 0;
+  min-height: 36px;
+}
+
+.btn-teaze-more,
 .btn-teaze-new {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
   background: transparent;
-  color: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 
+.btn-teaze-more:hover,
 .btn-teaze-new:hover {
   border-color: rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
 }
 
+.btn-teaze-more:disabled,
 .btn-teaze-new:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.teaze-category-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.teaze-category-toggle .teaze-selector-btn {
+  flex: 1;
+}
+
+.teaze-safety-microcopy {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: -0.5rem 0 0;
+  max-width: 480px;
+  line-height: 1.4;
 }
 
 .teaze-loading {

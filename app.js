@@ -5,12 +5,20 @@
   const COOLDOWN_MS = 5 * 60 * 1000;
   const SHARE_BASE = 'https://teazr.app';
 
-  const TEAZE_MOMENTS = ['START', 'KEEP GOING', 'RECONNECT', 'CLOSE KINDLY'];
+  const TEAZE_MOMENTS = ['START', 'KEEP GOING', 'RECONNECT', 'CLOSE KINDLY', 'BOUNDARY'];
+  const TEAZE_MOMENTS_FLIRTY = ['START', 'KEEP GOING', 'RECONNECT', 'CLOSE KINDLY'];
   const TEAZE_STYLES = ['PLAYFUL', 'CLASSY'];
+  const TEAZE_SITUATIONS = [
+    { id: 'unwanted_pic', label: 'Unwanted pic' },
+    { id: 'too_pushy', label: 'Too pushy / won\'t stop' }
+  ];
   const TEAZE_RECENT_MAX = 12;
+  const APP_VERSION = '1.0';
 
+  let teazeCategory = 'GENERAL';
   let teazeMoment = 'START';
-  let teazeStyle = 'PLAYFUL';
+  let teazeStyle = 'CLASSY';
+  let teazeSituation = 'unwanted_pic';
   let teazeCurrentIds = [];
   let teazeSeedBannerData = null;
 
@@ -157,21 +165,52 @@
     }
   }
 
-  function sendTeazeEvent(event, payload) {
+  /** Whitelist: only these keys are sent. No message text, names, emails, identifiers. */
+  const ANALYTICS_PROPS_KEYS = ['category', 'moment', 'style', 'situation', 'index', 'version', 'seedPresent'];
+
+  function sanitizeAnalyticsProps(props) {
+    if (!props || typeof props !== 'object') return {};
+    const out = {};
+    for (let i = 0; i < ANALYTICS_PROPS_KEYS.length; i++) {
+      const k = ANALYTICS_PROPS_KEYS[i];
+      if (!Object.prototype.hasOwnProperty.call(props, k) || props[k] == null) continue;
+      const v = props[k];
+      if (typeof v === 'number' || typeof v === 'boolean') out[k] = v;
+      else out[k] = String(v);
+    }
+    return out;
+  }
+
+  function sendEvent(eventName, props) {
     if (typeof window === 'undefined') return;
-    const body = JSON.stringify({
-      event: event,
-      moment: payload.moment || null,
-      style: payload.style || null,
-      messageId: payload.messageId != null ? payload.messageId : null,
+    const safeProps = sanitizeAnalyticsProps(props || {});
+    const payload = {
+      event: eventName,
       ts: Date.now(),
-      seedPresent: payload.seedPresent === true
-    });
-    fetch('/api/event', {
+      path: getPath(),
+      v: APP_VERSION,
+      props: safeProps
+    };
+    const body = JSON.stringify(payload);
+    const url = '/api/event';
+
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || /\.(dev|local)(:\d+)?$/.test(location.hostname)) {
+      console.log('[TEAZR analytics]', payload);
+    }
+
+    if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) {
+      return;
+    }
+    fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body
+      body,
+      keepalive: true
     }).catch(function() {});
+  }
+
+  function sendTeazeEvent(eventName, props) {
+    sendEvent(eventName, props);
   }
 
   function showToast(msg) {
@@ -219,105 +258,152 @@
     return h ? `${h}h ${m}m` : `${m}m`;
   }
 
-  function teazeBucketKey(moment, style) {
-    return 'teaze:' + String(moment).replace(/\s+/g, '_') + ':' + String(style);
+  /**
+   * Bucket key for anti-repeat: category + moment + style + (situation if any).
+   * Same bucket = same suggestion history (e.g. GENERAL:START:CLASSY: vs GENERAL:BOUNDARY::unwanted_pic).
+   */
+  function teazeBucketKey(category, moment, style, situation) {
+    const m = String(moment).replace(/\s+/g, '_');
+    const sty = (m === 'BOUNDARY') ? '' : String(style);
+    const sit = (m === 'BOUNDARY' && situation) ? String(situation) : '';
+    return 'teaz_v1:' + String(category) + ':' + m + ':' + sty + ':' + sit;
   }
 
-  function teazeMessagesKey(moment, style) {
-    return String(moment).replace(/\s+/g, '_') + ':' + String(style);
+  function teazeMessagesKey(moment, style, situation) {
+    const m = String(moment).replace(/\s+/g, '_');
+    if (m === 'BOUNDARY' && situation) {
+      return 'BOUNDARY:' + String(situation);
+    }
+    return m + ':' + String(style);
   }
 
+  /** Returns last 12 shown IDs for this bucket from localStorage. Normalizes to strings for compatibility. */
   function getTeazeRecentIds(bucketKey) {
     try {
       const raw = localStorage.getItem(bucketKey);
       if (!raw) return [];
       const arr = JSON.parse(raw);
-      return Array.isArray(arr) ? arr : [];
+      if (!Array.isArray(arr)) return [];
+      return arr.map(function(id) { return String(id); });
     } catch (_) { return []; }
   }
 
+  /** Keeps only the last 12 IDs per bucket. Overwrites older history. */
   function saveTeazeRecentIds(bucketKey, ids) {
     try {
       localStorage.setItem(bucketKey, JSON.stringify(ids.slice(-TEAZE_RECENT_MAX)));
     } catch (_) {}
   }
 
-  function pickTeazeMessages(moment, style, excludeIds) {
-    const msgKey = teazeMessagesKey(moment, style);
-    const bucket = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[msgKey];
+  /**
+   * Picks 3 suggestions with anti-repeat. excludeIds = currently visible 3 (must not reappear on MORE OPTIONS).
+   * - Preferred: not in exclude, not in last-12 history.
+   * - Fallback: not in exclude (allow recent if pool small).
+   * - Final fallback: entire bucket (graceful degrade, never error).
+   */
+  function pickTeazeMessages(category, moment, style, situation, excludeIds) {
+    const catData = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[category];
+    if (!catData) return [];
+    const msgKey = teazeMessagesKey(moment, style, situation);
+    const bucket = catData[msgKey];
     if (!bucket || !bucket.length) return [];
 
-    const recentIds = getTeazeRecentIds(teazeBucketKey(moment, style));
+    const bucketKey = teazeBucketKey(category, moment, style, situation);
+    const recentIds = getTeazeRecentIds(bucketKey);
     const exclude = new Set(excludeIds || []);
+
+    // Preferred: avoid both current 3 and last 12 shown.
     const preferred = bucket.filter(function(m) {
       return !exclude.has(m.id) && !recentIds.includes(m.id);
     });
+    // Fallback: avoid current 3 only (ok to repeat from history if dataset small).
     const fallback = bucket.filter(function(m) { return !exclude.has(m.id); });
-    const pool = preferred.length >= 3 ? preferred : fallback;
+    let pool = preferred.length >= 3 ? preferred : fallback;
+    // Final fallback: use full bucket (allow repeats only when no other choice).
+    if (pool.length === 0) pool = bucket;
 
     const shuffled = pool.slice().sort(function() { return Math.random() - 0.5; });
     return shuffled.slice(0, 3);
   }
 
   function makeTeazeShareUrl() {
-    var obj = { m: teazeMoment, s: teazeStyle, i: teazeCurrentIds.slice(0, 3) };
-    if (teazeMoment || teazeStyle) {
+    const obj = {
+      c: teazeCategory,
+      m: teazeMoment,
+      s: teazeStyle,
+      sit: teazeMoment === 'BOUNDARY' ? teazeSituation : null,
+      i: teazeCurrentIds.slice(0, 3)
+    };
+    if (teazeMoment === 'BOUNDARY') {
+      obj.l = (teazeMoment || '') + '/' + (teazeSituation || '');
+    } else if (teazeMoment || teazeStyle) {
       obj.l = (teazeMoment || '') + '/' + (teazeStyle || '');
     }
-    var json = JSON.stringify(obj);
-    var enc = toUrlSafeBase64(json);
+    const json = JSON.stringify(obj);
+    const enc = toUrlSafeBase64(json);
     return SHARE_BASE + '/teaze?s=' + encodeURIComponent(enc);
   }
 
   function getTeazeShareText(url) {
     if (teazeSeedBannerData) {
-      return 'Someone sent a Teaze (' + (teazeSeedBannerData.moment || '') + '/' + (teazeSeedBannerData.style || '') + '). Try yours: ' + url;
+      const lbl = teazeSeedBannerData.label || (teazeSeedBannerData.moment || '') + '/' + (teazeSeedBannerData.style || teazeSeedBannerData.situation || '');
+      return 'Someone sent a Teaz (' + lbl + '). Try yours: ' + url;
     }
-    return 'Try \'Send a Teaze\' on Teazr: ' + (url || 'teazr.app/teaze');
+    return 'Try \'Send a Teaz\' on Teazr: ' + (url || 'teazr.app/teaze');
   }
 
   function buildTeazeSeedBanner() {
     if (!teazeSeedBannerData) return '';
-    var mom = (teazeSeedBannerData.moment || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    var sty = (teazeSeedBannerData.style || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const lbl = (teazeSeedBannerData.label || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return '<div class="teaze-seed-banner" data-teaze-banner>' +
-      'Someone sent: ' + mom + ' / ' + sty + ' — pick yours ' +
+      'Someone sent: ' + lbl + ' — pick yours ' +
       '<button type="button" class="teaze-banner-hide" data-action="hide-banner" aria-label="Hide">×</button>' +
       '</div>';
   }
 
   function parseTeazeSeedParam() {
-    var params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    var s = params.get('s');
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const s = params.get('s');
     if (!s || typeof s !== 'string') return null;
     try {
-      var decoded = fromUrlSafeBase64(decodeURIComponent(s));
+      const decoded = fromUrlSafeBase64(decodeURIComponent(s));
       if (!decoded) return null;
-      var data = JSON.parse(decoded);
-      if (!data || typeof data.m !== 'string' || typeof data.s !== 'string') return null;
-      var moment = String(data.m).trim();
-      var style = String(data.s).trim();
-      if (!TEAZE_MOMENTS.includes(moment) || !TEAZE_STYLES.includes(style)) return null;
+      const data = JSON.parse(decoded);
+      if (!data || typeof data.m !== 'string') return null;
+      const moment = String(data.m).trim();
+      const category = data.c && (data.c === 'GENERAL' || data.c === 'FLIRTY') ? data.c : 'GENERAL';
+      const momentsForCat = category === 'GENERAL' ? TEAZE_MOMENTS : TEAZE_MOMENTS_FLIRTY;
+      if (!momentsForCat.includes(moment)) return null;
+      let style = 'CLASSY';
+      let situation = null;
+      if (moment === 'BOUNDARY') {
+        situation = (data.sit === 'unwanted_pic' || data.sit === 'too_pushy') ? data.sit : 'unwanted_pic';
+        if (category !== 'GENERAL') return null;
+      } else {
+        style = (data.s === 'PLAYFUL' || data.s === 'CLASSY') ? data.s : 'CLASSY';
+      }
       return {
+        category: category,
         moment: moment,
         style: style,
+        situation: situation,
         ids: Array.isArray(data.i) ? data.i.slice(0, 3) : [],
-        label: typeof data.l === 'string' ? data.l : (moment + '/' + style)
+        label: typeof data.l === 'string' ? data.l : (moment + '/' + (situation || style))
       };
     } catch (_) { return null; }
   }
 
-  var teazeEmptyRetries = 0;
+  let teazeEmptyRetries = 0;
 
   function showTeazeScreen() {
-    const bucketKey = teazeBucketKey(teazeMoment, teazeStyle);
-    var messages = pickTeazeMessages(teazeMoment, teazeStyle, teazeCurrentIds);
+    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, teazeSituation);
+    const messages = pickTeazeMessages(teazeCategory, teazeMoment, teazeStyle, teazeSituation, teazeCurrentIds);
     if (!messages || messages.length === 0) {
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
       render(`
         <div class="teaze-screen" data-teaze-root>
           <a href="/" class="teaze-back" data-teaze-back>← Back</a>
-          <h1 class="teaze-title">SEND A TEAZE</h1>
+          <h1 class="teaze-title">SEND A TEAZ</h1>
           <p class="teaze-loading">Loading…</p>
         </div>
       `);
@@ -330,71 +416,124 @@
     teazeCurrentIds = messages.map(function(m) { return m.id; });
     saveTeazeRecentIds(bucketKey, getTeazeRecentIds(bucketKey).concat(teazeCurrentIds));
 
-    const momentOpts = TEAZE_MOMENTS.map(function(m) {
+    const momentsForCat = teazeCategory === 'GENERAL' ? TEAZE_MOMENTS : TEAZE_MOMENTS_FLIRTY;
+    const momentOpts = momentsForCat.map(function(m) {
       const escaped = m.replace(/'/g, '&#39;');
       return `<button type="button" class="teaze-selector-btn ${teazeMoment === m ? 'active' : ''}" data-moment="${escaped}">${m}</button>`;
     }).join('');
-    const styleOpts = TEAZE_STYLES.map(function(s) {
+    const styleOpts = teazeMoment === 'BOUNDARY' ? '' : TEAZE_STYLES.map(function(s) {
       return `<button type="button" class="teaze-selector-btn ${teazeStyle === s ? 'active' : ''}" data-style="${s}">${s}</button>`;
     }).join('');
+    const situationOpts = teazeMoment === 'BOUNDARY' ? TEAZE_SITUATIONS.map(function(sit) {
+      return `<button type="button" class="teaze-selector-btn ${teazeSituation === sit.id ? 'active' : ''}" data-situation="${sit.id}">${sit.label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</button>`;
+    }).join('') : '';
 
-    const msgBlocks = messages.map(function(m) {
+    const msgBlocks = messages.map(function(m, idx) {
       return `
         <div class="teaze-message-card" data-id="${m.id}">
           <p class="teaze-message-text">${m.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-          <button type="button" class="btn-teaze-copy" data-action="copy" data-id="${m.id}">COPY</button>
+          <button type="button" class="btn-teaze-copy" data-action="copy" data-id="${m.id}" data-index="${idx}">COPY</button>
         </div>
       `;
     }).join('');
 
+    const styleGroupHtml = teazeMoment === 'BOUNDARY' ? '' : `
+      <div class="teaze-selector-group">
+        <label class="teaze-selector-label">Styles</label>
+        <div class="teaze-selector-btns">${styleOpts}</div>
+      </div>`;
+    const situationGroupHtml = teazeMoment === 'BOUNDARY' ? `
+      <div class="teaze-selector-group">
+        <label class="teaze-selector-label">Situation</label>
+        <div class="teaze-selector-btns">${situationOpts}</div>
+      </div>` : '';
+    const categoryOpts = `
+      <div class="teaze-selector-group">
+        <label class="teaze-selector-label">Category</label>
+        <div class="teaze-category-toggle">
+          <button type="button" class="teaze-selector-btn ${teazeCategory === 'GENERAL' ? 'active' : ''}" data-category="GENERAL">GENERAL</button>
+          <button type="button" class="teaze-selector-btn ${teazeCategory === 'FLIRTY' ? 'active' : ''}" data-category="FLIRTY">FLIRTY</button>
+        </div>
+      </div>`;
+    const safetyMicrocopy = teazeMoment === 'BOUNDARY' ? '<p class="teaze-safety-microcopy">If you feel unsafe, stop replying and use platform block/report.</p>' : '';
     const bannerHtml = teazeSeedBannerData ? buildTeazeSeedBanner() : '';
 
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
         <a href="/" class="teaze-back" data-teaze-back>← Back</a>
-        <h1 class="teaze-title">SEND A TEAZE</h1>
+        <h1 class="teaze-title">SEND A TEAZ</h1>
         <div class="teaze-selectors">
+          ${categoryOpts}
           <div class="teaze-selector-group">
             <label class="teaze-selector-label">Moments</label>
             <div class="teaze-selector-btns">${momentOpts}</div>
           </div>
-          <div class="teaze-selector-group">
-            <label class="teaze-selector-label">Styles</label>
-            <div class="teaze-selector-btns">${styleOpts}</div>
-          </div>
+          ${styleGroupHtml}
+          ${situationGroupHtml}
         </div>
-        <p class="teaze-copy-hint">Copy one. Paste in DM.</p>
+        <div class="teaze-suggestions-header">
+          <p class="teaze-copy-hint">Copy one. Paste in DM.</p>
+          <button type="button" class="btn-teaze-more" data-action="new-options">MORE OPTIONS ↻</button>
+        </div>
         <div class="teaze-messages">${msgBlocks}</div>
+        ${safetyMicrocopy}
         <div class="teaze-share-row">
           <p class="teaze-share-hint">Screenshot & share.</p>
           <button type="button" class="btn-teaze-whatsapp" data-action="share-whatsapp">SHARE ON WHATSAPP</button>
           <button type="button" class="btn-teaze-copy-link" data-action="copy-link">COPY LINK</button>
         </div>
-        <button type="button" class="btn-teaze-new" data-action="new-options">NEW OPTIONS</button>
       </div>
     `);
   }
 
-  function setTeazeMoment(m) {
-    teazeMoment = m;
+  function setTeazeCategory(c) {
+    if (c === teazeCategory) return;
+    teazeCategory = c;
+    // BOUNDARY is GENERAL-only: switching to FLIRTY resets to START and clears situation
+    if (c === 'FLIRTY' && teazeMoment === 'BOUNDARY') {
+      teazeMoment = 'START';
+      teazeSituation = 'unwanted_pic';
+      teazeStyle = 'CLASSY';
+    }
     teazeCurrentIds = [];
+    sendTeazeEvent('category_selected', { category: c });
+    showTeazeScreen();
+  }
+
+  function setTeazeMoment(m) {
+    if (m === teazeMoment) return;
+    teazeMoment = m;
+    if (m === 'BOUNDARY') teazeSituation = 'unwanted_pic';
+    teazeCurrentIds = [];
+    sendTeazeEvent('moment_selected', { moment: m });
     showTeazeScreen();
   }
 
   function setTeazeStyle(s) {
+    if (s === teazeStyle) return;
     teazeStyle = s;
     teazeCurrentIds = [];
+    sendTeazeEvent('style_selected', { style: s });
     showTeazeScreen();
   }
 
-  function copyTeazeMessage(moment, style, messageId) {
-    const msgKey = teazeMessagesKey(moment, style);
-    const bucket = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[msgKey];
+  function setTeazeSituation(sit) {
+    if (sit === teazeSituation) return;
+    teazeSituation = sit;
+    teazeCurrentIds = [];
+    sendTeazeEvent('situation_selected', { situation: sit });
+    showTeazeScreen();
+  }
+
+  function copyTeazeMessage(messageId, index) {
+    const msgKey = teazeMessagesKey(teazeMoment, teazeStyle, teazeSituation);
+    const catData = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[teazeCategory];
+    const bucket = catData && catData[msgKey];
     const msg = bucket && bucket.find(function(m) { return m.id === messageId; });
     if (!msg) return;
     copyResultUrl(msg.text).then(function() {
-      var btn = document.querySelector('[data-action="copy"][data-id="' + messageId + '"]');
+      const btn = document.querySelector('[data-action="copy"][data-id="' + messageId + '"]');
       if (btn) {
         btn.textContent = 'COPIED';
         btn.classList.add('copied');
@@ -405,34 +544,44 @@
           btn.disabled = false;
         }, 1000);
       }
-      sendTeazeEvent('copy_clicked', { moment, style, messageId });
+      sendTeazeEvent('copy_clicked', {
+        category: teazeCategory,
+        moment: teazeMoment,
+        style: teazeMoment === 'BOUNDARY' ? null : teazeStyle,
+        situation: teazeMoment === 'BOUNDARY' ? teazeSituation : null,
+        index: index
+      });
     }).catch(function() { showToast('Could not copy'); });
   }
 
   function newTeazeOptions() {
-    var btn = document.querySelector('[data-action="new-options"]');
+    const btn = document.querySelector('[data-action="new-options"]');
     if (btn) {
       btn.disabled = true;
       btn.textContent = 'REFRESHING…';
     }
-    sendTeazeEvent('new_options_clicked', { moment: teazeMoment, style: teazeStyle });
+    sendTeazeEvent('more_options_clicked', {
+      category: teazeCategory,
+      moment: teazeMoment,
+      style: teazeMoment === 'BOUNDARY' ? null : teazeStyle,
+      situation: teazeMoment === 'BOUNDARY' ? teazeSituation : null
+    });
     setTimeout(function() {
       showTeazeScreen();
     }, 280);
   }
 
   function shareTeazeWhatsApp() {
-    var url = makeTeazeShareUrl();
-    var text = getTeazeShareText(url);
-    var encoded = encodeURIComponent(text);
+    const url = makeTeazeShareUrl();
+    const text = getTeazeShareText(url);
+    const encoded = encodeURIComponent(text);
     window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
-    sendTeazeEvent('share_whatsapp_clicked', { moment: teazeMoment, style: teazeStyle });
   }
 
   function copyTeazeLink() {
-    var url = makeTeazeShareUrl();
+    const url = makeTeazeShareUrl();
     copyResultUrl(url).then(function() {
-      var btn = document.querySelector('[data-action="copy-link"]');
+      const btn = document.querySelector('[data-action="copy-link"]');
       if (btn) {
         btn.textContent = 'COPIED';
         btn.classList.add('copied');
@@ -443,7 +592,6 @@
           btn.disabled = false;
         }, 1000);
       }
-      sendTeazeEvent('copy_link_clicked', { moment: teazeMoment, style: teazeStyle });
     }).catch(function() { showToast('Could not copy'); });
   }
 
@@ -453,14 +601,21 @@
     app.addEventListener('click', function handleTeazeClick(e) {
       if (!app.querySelector('[data-teaze-root]')) return;
       const target = e.target;
+      const categoryBtn = target.closest('[data-category]');
       const momentBtn = target.closest('[data-moment]');
       const styleBtn = target.closest('[data-style]');
+      const situationBtn = target.closest('[data-situation]');
       const actionEl = target.closest('[data-action]');
       const backLink = target.closest('[data-teaze-back]');
 
       if (backLink) {
         e.preventDefault();
         navigateHome();
+        return;
+      }
+      if (categoryBtn) {
+        const c = categoryBtn.getAttribute('data-category');
+        if (c && (c === 'GENERAL' || c === 'FLIRTY')) setTeazeCategory(c);
         return;
       }
       if (momentBtn) {
@@ -473,6 +628,11 @@
         if (s) setTeazeStyle(s);
         return;
       }
+      if (situationBtn) {
+        const sit = situationBtn.getAttribute('data-situation');
+        if (sit) setTeazeSituation(sit);
+        return;
+      }
       if (actionEl) {
         const action = actionEl.getAttribute('data-action');
         if (action === 'new-options') {
@@ -481,9 +641,10 @@
         }
         if (action === 'copy') {
           const idRaw = actionEl.getAttribute('data-id');
-          if (idRaw != null) {
-            const messageId = parseInt(idRaw, 10);
-            if (!isNaN(messageId)) copyTeazeMessage(teazeMoment, teazeStyle, messageId);
+          const idxRaw = actionEl.getAttribute('data-index');
+          if (idRaw != null && String(idRaw).length > 0) {
+            const index = idxRaw != null ? parseInt(idxRaw, 10) : 0;
+            copyTeazeMessage(String(idRaw), isNaN(index) ? 0 : index);
           }
           return;
         }
@@ -505,16 +666,26 @@
   }
 
   function initTeaze() {
-    var seed = parseTeazeSeedParam();
+    const seed = parseTeazeSeedParam();
     teazeSeedBannerData = seed;
-    sendTeazeEvent('teaz_opened', { seedPresent: !!seed });
+    teazeCategory = 'GENERAL';
     teazeMoment = 'START';
-    teazeStyle = 'PLAYFUL';
+    teazeStyle = 'CLASSY';
+    teazeSituation = 'unwanted_pic';
     teazeCurrentIds = [];
     if (seed) {
+      teazeCategory = seed.category;
       teazeMoment = seed.moment;
-      teazeStyle = seed.style;
+      teazeStyle = seed.style || 'CLASSY';
+      teazeSituation = seed.situation || 'unwanted_pic';
+      // BOUNDARY is GENERAL-only: reject FLIRTY+BOUNDARY from seed
+      if (teazeCategory === 'FLIRTY' && teazeMoment === 'BOUNDARY') {
+        teazeMoment = 'START';
+        teazeSituation = 'unwanted_pic';
+        teazeStyle = 'CLASSY';
+      }
     }
+    sendTeazeEvent('teaz_opened', { seedPresent: !!seed });
     showTeazeScreen();
   }
 
@@ -544,7 +715,7 @@
           <h1 class="start-title">TEAZR</h1>
           <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
           <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
-          <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
           <div class="quiz-secondary-wrap">
             <button type="button" class="btn-quiz-secondary" onclick="TEAZR.start()">TAKE THE QUIZ</button>
             <p class="quiz-helper">6 questions · 30 seconds</p>
@@ -563,7 +734,7 @@
           <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
           <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
           <p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${msg}.</p>
-          <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+          <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
           <div class="quiz-secondary-wrap">
             <p class="quiz-fun-note">Discover your flirt energy. If you dare.</p>
           </div>
@@ -698,6 +869,7 @@
   function showResult() {
     const data = computeResult();
     setCooldown();
+    sendEvent('quiz_completed', { version: QUIZ_VERSION });
     renderResultScreen(data, true);
     const shareUrl = makeShareUrl(data);
     if (window.history && window.history.replaceState) {
@@ -732,9 +904,12 @@
     emitAnalytics('share_whatsapp_clicked');
   }
 
+  const QUIZ_VERSION = '1';
+
   function start() {
     step = 0;
     answers = [];
+    sendEvent('quiz_started', { version: QUIZ_VERSION });
     showQuestion();
   }
 
