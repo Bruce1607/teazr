@@ -1,9 +1,11 @@
 export async function onRequest({ request, next }) {
   const url = new URL(request.url);
+  const host = url.hostname;
 
-  if (url.hostname === "teazr.pages.dev") {
-    url.hostname = "teazr.app";
-    return Response.redirect(url.toString(), 301);
+  // Redirect *.pages.dev (including teazr.pages.dev) to teazr.app
+  if (host.endsWith(".pages.dev")) {
+    const dest = `https://teazr.app${url.pathname}${url.search}`;
+    return Response.redirect(dest, 301);
   }
 
   return next();
