@@ -8,8 +8,11 @@ export async function onRequest({ request, next }) {
   const isProductionHost = host === "teazr.app" || host === "www.teazr.app";
 
   if (isPreviewHost && !isProductionHost) {
-    const dest = `https://teazr.app${url.pathname}${url.search}`;
-    return Response.redirect(dest, 301);
+    const destUrl = new URL(request.url);
+    destUrl.protocol = 'https:';
+    destUrl.hostname = 'teazr.app';
+    destUrl.port = '';
+    return Response.redirect(destUrl.toString(), 301);
   }
 
   return next();
