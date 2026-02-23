@@ -509,6 +509,15 @@ body {
   color: rgba(255, 255, 255, 0.95);
 }
 
+.teaze-back.teaze-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  appearance: none;
+}
+
 .teaze-title {
   font-size: 1.75rem;
   font-weight: 400;

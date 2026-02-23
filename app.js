@@ -1,6 +1,6 @@
 (function() {
   'use strict';
-  if (typeof console !== 'undefined' && console.log) { console.log('TEAZR BUILD:', '3'); }
+  if (typeof console !== 'undefined' && console.log) { console.log('TEAZR BUILD:', '4'); }
 
   const COOLDOWN_KEY = 'teazr_cooldown';
   const COOLDOWN_MS = 5 * 60 * 1000;
@@ -28,7 +28,7 @@
   const CATEGORY_STORAGE_KEY = 'teazr_category';
   const TEAZE_TAB_KEY = 'teazr_teaze_tab';
   const TEAZE_SEEDED_KEY = 'teaze_seeded';
-  const APP_VERSION = '3';
+  const APP_VERSION = '4';
 
   let teazeCategory = 'GENERAL';
   let teazeMoment = 'START';
@@ -521,18 +521,9 @@
       '</div>';
   }
 
-  function getTeazeTabFromUrl() {
-    if (typeof window === 'undefined' || !window.location) return null;
-    const params = new URLSearchParams(window.location.search);
-    const t = params.get('tab');
-    if (t === 'today' || t === 'recent' || t === 'saved') return t.toUpperCase();
-    return null;
-  }
-
-  function getTeazeUrlWithTab(tab) {
-    const t = (tab || 'TODAY').toLowerCase();
+  function getTeazeBaseUrl() {
     const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    params.set('tab', t);
+    params.delete('tab');
     const qs = params.toString();
     return '/teaze' + (qs ? '?' + qs : '');
   }
@@ -542,14 +533,10 @@
       if (sessionStorage.getItem(TEAZE_SEEDED_KEY) === '1') return;
     } catch (_) { return; }
     if (!window.history || !window.history.replaceState || !window.history.pushState) return;
-    const tabFromUrl = getTeazeTabFromUrl();
-    const urlToday = getTeazeUrlWithTab('TODAY');
-    window.history.replaceState({ teaze: true, tab: 'today' }, '', urlToday);
-    window.history.pushState({ teaze: true, tab: 'today', seed: true }, '', urlToday);
+    const baseUrl = getTeazeBaseUrl();
+    window.history.replaceState({ teaze: true }, '', baseUrl);
+    window.history.pushState({ teaze: true, seed: true }, '', baseUrl);
     try { sessionStorage.setItem(TEAZE_SEEDED_KEY, '1'); } catch (_) {}
-    if (tabFromUrl === 'RECENT' || tabFromUrl === 'SAVED') {
-      window.history.pushState({ teaze: true, tab: tabFromUrl.toLowerCase() }, '', getTeazeUrlWithTab(tabFromUrl));
-    }
   }
 
   function parseTeazeSeedParam() {
@@ -604,14 +591,15 @@
               </div>
             </div>`;
         }).join('');
+    const backHtml = '<button type="button" class="teaze-back teaze-back-btn" data-teaze-back aria-label="Back to Today">← Today</button>';
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        <a href="/teaze" class="teaze-back" data-teaze-back>← Back</a>
+        ${backHtml}
         <h1 class="teaze-title">SEND A TEAZ</h1>
         <div class="teaze-tabs">
           <button type="button" class="teaze-tab ${teazeActiveTab === 'TODAY' ? 'active' : ''}" data-tab="TODAY">TODAY</button>
-          <button type="button" class="teaze-tab ${teazeActiveTab === 'RECENT' ? 'active' : ''}" data-tab="RECENT">RECENT</button>
+          <button type="button" class="teaze-tab ${teazeActiveTab === 'COPIED' ? 'active' : ''}" data-tab="COPIED">COPIED</button>
           <button type="button" class="teaze-tab ${teazeActiveTab === 'SAVED' ? 'active' : ''}" data-tab="SAVED">SAVED</button>
         </div>
         <div class="teaze-messages">${itemsHtml}</div>
@@ -621,14 +609,14 @@
   }
 
   function showTeazeScreen() {
-    if (teazeActiveTab === 'RECENT') {
-      const recent = getRecentCopied();
-      renderRecentOrSavedTab(recent, 'Nothing copied yet.');
+    if (teazeActiveTab === 'COPIED') {
+      const copied = getRecentCopied();
+      renderRecentOrSavedTab(copied, 'Nothing copied yet.');
       return;
     }
     if (teazeActiveTab === 'SAVED') {
       const saved = getSaved();
-      renderRecentOrSavedTab(saved, 'Nothing saved yet.');
+      renderRecentOrSavedTab(saved, 'No saved lines.');
       return;
     }
 
@@ -638,7 +626,6 @@
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
       render(`
         <div class="teaze-screen" data-teaze-root>
-          <a href="/teaze" class="teaze-back" data-teaze-back>← Back</a>
           <h1 class="teaze-title">SEND A TEAZ</h1>
           <p class="teaze-loading">Loading…</p>
         </div>
@@ -706,10 +693,11 @@
     const bannerHtml = teazeSeedBannerData ? buildTeazeSeedBanner() : '';
     const categoryMicrocopy = teazeCategory === 'GENERAL' ? 'Short. Human. Copy/paste.' : 'Playful, not cringe.';
 
+    const backHtml = '';
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        <a href="/teaze" class="teaze-back" data-teaze-back>← Back</a>
+        ${backHtml}
         <h1 class="teaze-title">SEND A TEAZ</h1>
         <div class="teaze-selectors">
           ${categoryOpts}
@@ -722,7 +710,7 @@
         </div>
         <div class="teaze-tabs">
           <button type="button" class="teaze-tab ${teazeActiveTab === 'TODAY' ? 'active' : ''}" data-tab="TODAY">TODAY</button>
-          <button type="button" class="teaze-tab ${teazeActiveTab === 'RECENT' ? 'active' : ''}" data-tab="RECENT">RECENT</button>
+          <button type="button" class="teaze-tab ${teazeActiveTab === 'COPIED' ? 'active' : ''}" data-tab="COPIED">COPIED</button>
           <button type="button" class="teaze-tab ${teazeActiveTab === 'SAVED' ? 'active' : ''}" data-tab="SAVED">SAVED</button>
         </div>
         <div class="teaze-suggestions-header">
@@ -802,7 +790,7 @@
     showToast(nowSaved ? 'Saved' : 'Removed');
     const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
     sendTeazeEvent('save_toggled', { saved: nowSaved, bucketKey: bucketKey });
-    if (teazeActiveTab === 'SAVED' || teazeActiveTab === 'TODAY') showTeazeScreen();
+    if (teazeActiveTab === 'SAVED' || teazeActiveTab === 'TODAY' || teazeActiveTab === 'COPIED') showTeazeScreen();
   }
 
   function getMessageTextById(messageId) {
@@ -899,9 +887,6 @@
           teazeActiveTab = tab;
           try { localStorage.setItem(TEAZE_TAB_KEY, tab); } catch (_) {}
           sendTeazeEvent('tab_changed', { tab: tab });
-          if (window.history && window.history.pushState) {
-            window.history.pushState({ teaze: true, tab: tab.toLowerCase() }, '', getTeazeUrlWithTab(tab));
-          }
           showTeazeScreen();
         }
         return;
@@ -1008,19 +993,7 @@
     teazeStyle = 'CLASSY';
     teazeSituation = 'ANY';
     teazeCurrentIds = [];
-    const tabFromUrl = getTeazeTabFromUrl();
-    if (tabFromUrl) {
-      teazeActiveTab = tabFromUrl;
-    } else {
-      try {
-        const storedTab = localStorage.getItem(TEAZE_TAB_KEY);
-        teazeActiveTab = (storedTab === 'TODAY' || storedTab === 'RECENT' || storedTab === 'SAVED') ? storedTab : 'TODAY';
-      } catch (_) { teazeActiveTab = 'TODAY'; }
-      if (window.history && window.history.replaceState) {
-        window.history.replaceState({ teaze: true, tab: teazeActiveTab.toLowerCase() }, '', getTeazeUrlWithTab(teazeActiveTab));
-      }
-    }
-    try { localStorage.setItem(TEAZE_TAB_KEY, teazeActiveTab); } catch (_) {}
+    teazeActiveTab = 'TODAY';
     if (seed) {
       teazeCategory = seed.category;
       teazeMoment = seed.moment;
@@ -1037,43 +1010,23 @@
   }
 
   function navigateToTeaze() {
+    const url = getPath() === '/teaze' ? getTeazeBaseUrl() : '/teaze';
     if (window.history && window.history.pushState) {
-      window.history.pushState({ teaze: true, tab: 'today' }, '', getTeazeUrlWithTab('TODAY'));
+      window.history.pushState({ teaze: true }, '', url);
     } else {
-      window.location.href = getTeazeUrlWithTab('TODAY');
+      window.location.href = url;
       return;
     }
     initTeaze();
   }
 
   function handleTeazeBack() {
-    if (teazeActiveTab === 'RECENT' || teazeActiveTab === 'SAVED') {
+    if (teazeActiveTab === 'COPIED' || teazeActiveTab === 'SAVED') {
       teazeActiveTab = 'TODAY';
       try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
-      if (window.history && window.history.replaceState) {
-        window.history.replaceState({ teaze: true, tab: 'today' }, '', getTeazeUrlWithTab('TODAY'));
-      }
       showTeazeScreen();
       return;
     }
-    const canGoBack = window.history.length > 1;
-    let referrerSameOrigin = false;
-    try {
-      if (document.referrer) {
-        const refOrigin = new URL(document.referrer).origin;
-        referrerSameOrigin = refOrigin === window.location.origin;
-      }
-    } catch (_) {}
-    if (canGoBack && referrerSameOrigin) {
-      window.history.back();
-      return;
-    }
-    teazeActiveTab = 'TODAY';
-    try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
-    if (window.history && window.history.replaceState) {
-      window.history.replaceState({ teaze: true, tab: 'today' }, '', getTeazeUrlWithTab('TODAY'));
-    }
-    showTeazeScreen();
   }
 
   function navigateHome() {
@@ -1362,18 +1315,6 @@
     window.addEventListener('popstate', function() {
       const path = getPath();
       if (path === '/teaze') {
-        const tab = getTeazeTabFromUrl() || 'TODAY';
-        teazeActiveTab = tab;
-        try { localStorage.setItem(TEAZE_TAB_KEY, tab); } catch (_) {}
-        showTeazeScreen();
-        return;
-      }
-      if (path !== '/teaze' && (teazeActiveTab === 'RECENT' || teazeActiveTab === 'SAVED')) {
-        teazeActiveTab = 'TODAY';
-        try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
-        if (window.history && window.history.pushState) {
-          window.history.pushState({ teaze: true, tab: 'today', seed: true }, '', getTeazeUrlWithTab('TODAY'));
-        }
         showTeazeScreen();
         return;
       }
