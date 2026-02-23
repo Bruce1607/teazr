@@ -1,7 +1,8 @@
-# Canonical: /teaze (no trailing slash). /teaze/ -> /teaze 301, query params preserved
+# Canonical: /teaze (no trailing slash). ONLY redirect /teaze/ -> /teaze (never /teaze -> /teaze/)
+# Query params preserved by Cloudflare. /teaze excluded from Functions so _redirects applies.
 /teaze/   /teaze   301
 
-# /teaze serves teaze page via flat file (avoids Cloudflare auto /teaze -> /teaze/ directory redirect)
+# /teaze rewrite to teaze.html (avoids directory-style /teaze -> /teaze/ redirect)
 /teaze    /teaze.html   200
 
 # SPA fallback: MUST be last. Query params preserved.
