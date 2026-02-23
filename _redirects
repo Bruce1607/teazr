@@ -1,6 +1,8 @@
-# /teaze (no trailing slash): serve teaze page. Query params (v, cb, utm, fbclid) preserved.
-# NOTE: /teaze/ -> /teaze 301 is handled by functions/_middleware.js to preserve query params.
-/teaze  /teaze/index.html  200
+# /teaze/ -> /teaze 301 (preserves v, cb, utm, fbclid)
+/teaze/   /teaze   301
+
+# /teaze serves teaze page (200 rewrite)
+/teaze    /teaze/index.html   200
 
 # SPA fallback: MUST be last. Query params preserved.
-/*  /index.html  200
+/*        /index.html   200

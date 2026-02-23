@@ -1,6 +1,13 @@
 (function() {
   'use strict';
-  if (typeof console !== 'undefined' && console.log) { console.log('TEAZR BUILD:', '4'); }
+  var TEAZR_BUILD = 'fcb008a-emergency';
+  if (typeof console !== 'undefined' && console.log) { console.log('TEAZR BUILD:', TEAZR_BUILD); }
+  // Defensive: unregister any stuck service worker (none in our code, but clears rogue/cached SW)
+  if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      regs.forEach(function(r) { r.unregister(); });
+    });
+  }
 
   const COOLDOWN_KEY = 'teazr_cooldown';
   const COOLDOWN_MS = 5 * 60 * 1000;
