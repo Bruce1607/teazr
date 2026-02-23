@@ -26,6 +26,7 @@
   const SAVED_MAX = 60;
   const CATEGORY_STORAGE_KEY = 'teazr_category';
   const TEAZE_TAB_KEY = 'teazr_teaze_tab';
+  const TEAZE_SEEDED_KEY = 'teaze_seeded';
   const APP_VERSION = '3';
 
   let teazeCategory = 'GENERAL';
@@ -535,6 +536,21 @@
     return '/teaze' + (qs ? '?' + qs : '');
   }
 
+  function ensureTeazeHistorySeeded() {
+    try {
+      if (sessionStorage.getItem(TEAZE_SEEDED_KEY) === '1') return;
+    } catch (_) { return; }
+    if (!window.history || !window.history.replaceState || !window.history.pushState) return;
+    const tabFromUrl = getTeazeTabFromUrl();
+    const urlToday = getTeazeUrlWithTab('TODAY');
+    window.history.replaceState({ teaze: true, tab: 'today' }, '', urlToday);
+    window.history.pushState({ teaze: true, tab: 'today', seed: true }, '', urlToday);
+    try { sessionStorage.setItem(TEAZE_SEEDED_KEY, '1'); } catch (_) {}
+    if (tabFromUrl === 'RECENT' || tabFromUrl === 'SAVED') {
+      window.history.pushState({ teaze: true, tab: tabFromUrl.toLowerCase() }, '', getTeazeUrlWithTab(tabFromUrl));
+    }
+  }
+
   function parseTeazeSeedParam() {
     const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const s = params.get('s');
@@ -883,7 +899,7 @@
           try { localStorage.setItem(TEAZE_TAB_KEY, tab); } catch (_) {}
           sendTeazeEvent('tab_changed', { tab: tab });
           if (window.history && window.history.pushState) {
-            window.history.pushState({}, '', getTeazeUrlWithTab(tab));
+            window.history.pushState({ teaze: true, tab: tab.toLowerCase() }, '', getTeazeUrlWithTab(tab));
           }
           showTeazeScreen();
         }
@@ -980,6 +996,7 @@
   }
 
   function initTeaze() {
+    ensureTeazeHistorySeeded();
     const seed = parseTeazeSeedParam();
     teazeSeedBannerData = seed;
     try {
@@ -999,7 +1016,7 @@
         teazeActiveTab = (storedTab === 'TODAY' || storedTab === 'RECENT' || storedTab === 'SAVED') ? storedTab : 'TODAY';
       } catch (_) { teazeActiveTab = 'TODAY'; }
       if (window.history && window.history.replaceState) {
-        window.history.replaceState({}, '', getTeazeUrlWithTab(teazeActiveTab));
+        window.history.replaceState({ teaze: true, tab: teazeActiveTab.toLowerCase() }, '', getTeazeUrlWithTab(teazeActiveTab));
       }
     }
     try { localStorage.setItem(TEAZE_TAB_KEY, teazeActiveTab); } catch (_) {}
@@ -1020,7 +1037,7 @@
 
   function navigateToTeaze() {
     if (window.history && window.history.pushState) {
-      window.history.pushState({}, '', getTeazeUrlWithTab('TODAY'));
+      window.history.pushState({ teaze: true, tab: 'today' }, '', getTeazeUrlWithTab('TODAY'));
     } else {
       window.location.href = getTeazeUrlWithTab('TODAY');
       return;
@@ -1029,6 +1046,15 @@
   }
 
   function handleTeazeBack() {
+    if (teazeActiveTab === 'RECENT' || teazeActiveTab === 'SAVED') {
+      teazeActiveTab = 'TODAY';
+      try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({ teaze: true, tab: 'today' }, '', getTeazeUrlWithTab('TODAY'));
+      }
+      showTeazeScreen();
+      return;
+    }
     const canGoBack = window.history.length > 1;
     let referrerSameOrigin = false;
     try {
@@ -1044,7 +1070,7 @@
     teazeActiveTab = 'TODAY';
     try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
     if (window.history && window.history.replaceState) {
-      window.history.replaceState({}, '', getTeazeUrlWithTab('TODAY'));
+      window.history.replaceState({ teaze: true, tab: 'today' }, '', getTeazeUrlWithTab('TODAY'));
     }
     showTeazeScreen();
   }
@@ -1334,24 +1360,23 @@
     setupTeazeClickDelegation();
     window.addEventListener('popstate', function() {
       const path = getPath();
-      const showingTeaze = document.getElementById('app') && document.getElementById('app').querySelector('[data-teaze-root]');
-      if (path === '/' && showingTeaze) {
-        if (window.history && window.history.replaceState) {
-          window.history.replaceState({}, '', getTeazeUrlWithTab('TODAY'));
-        }
-        teazeActiveTab = 'TODAY';
-        try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
-        showTeazeScreen();
-        return;
-      }
       if (path === '/teaze') {
         const tab = getTeazeTabFromUrl() || 'TODAY';
         teazeActiveTab = tab;
         try { localStorage.setItem(TEAZE_TAB_KEY, tab); } catch (_) {}
         showTeazeScreen();
-      } else {
-        init();
+        return;
       }
+      if (path !== '/teaze' && (teazeActiveTab === 'RECENT' || teazeActiveTab === 'SAVED')) {
+        teazeActiveTab = 'TODAY';
+        try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
+        if (window.history && window.history.pushState) {
+          window.history.pushState({ teaze: true, tab: 'today', seed: true }, '', getTeazeUrlWithTab('TODAY'));
+        }
+        showTeazeScreen();
+        return;
+      }
+      init();
     });
   }
 
