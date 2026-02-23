@@ -497,6 +497,47 @@ body {
   cursor: pointer;
 }
 
+/* Teaze header nav: MENU (always) + ← Back (on COPIED/SAVED) */
+.teaze-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: flex-start;
+  width: 100%;
+  max-width: 520px;
+  margin-bottom: -0.5rem;
+}
+
+.teaze-nav-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.teaze-nav-btn:hover {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.teaze-back-btn {
+  padding-left: 0.25rem;
+}
+
+.teaze-menu-btn {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
 .teaze-back {
   align-self: flex-start;
   font-size: 0.9rem;
