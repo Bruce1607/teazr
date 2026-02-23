@@ -12,7 +12,7 @@
     { id: 'unwanted_pic', label: 'Unwanted pic' },
     { id: 'too_pushy', label: 'Too pushy / won\'t stop' }
   ];
-  const TEAZE_RECENT_MAX = 12;
+  const TEAZE_RECENT_MAX = 18;
   const APP_VERSION = '1.0';
 
   let teazeCategory = 'GENERAL';
@@ -258,6 +258,24 @@
     return h ? `${h}h ${m}m` : `${m}m`;
   }
 
+  /** Banned phrases (case-insensitive). Runtime safety filter. */
+  const TEAZE_BANNED_PHRASES = [
+    'all is well', 'i trust', 'on your end', 'hope you\'re well', 'per my last message',
+    'just checking in', 'circling back', 'touch base', 'dear', 'kindly', 'sincerely',
+    'i wanted to reach out', 'i was wondering if', 'i feel like', 'i think that',
+    'i just', 'maybe', 'if that makes sense', 'how are you doing today',
+    'good morning', 'good evening', 'no worries at all', 'i hope this finds you well'
+  ];
+
+  function hasBannedPhrase(text) {
+    if (!text || typeof text !== 'string') return false;
+    const lower = text.toLowerCase();
+    for (let i = 0; i < TEAZE_BANNED_PHRASES.length; i++) {
+      if (lower.indexOf(TEAZE_BANNED_PHRASES[i]) !== -1) return true;
+    }
+    return false;
+  }
+
   /**
    * Bucket key for anti-repeat: category + moment + style + (situation if any).
    * Same bucket = same suggestion history (e.g. GENERAL:START:CLASSY: vs GENERAL:BOUNDARY::unwanted_pic).
@@ -277,18 +295,20 @@
     return m + ':' + String(style);
   }
 
-  /** Returns last 12 shown IDs for this bucket from localStorage. Normalizes to strings for compatibility. */
-  function getTeazeRecentIds(bucketKey) {
+  /** Returns last N shown IDs for this bucket from localStorage. maxCount limits how many we use (for small buckets). */
+  function getTeazeRecentIds(bucketKey, maxCount) {
     try {
       const raw = localStorage.getItem(bucketKey);
       if (!raw) return [];
       const arr = JSON.parse(raw);
       if (!Array.isArray(arr)) return [];
-      return arr.map(function(id) { return String(id); });
+      const normalized = arr.map(function(id) { return String(id); });
+      const n = maxCount != null ? Math.min(maxCount, TEAZE_RECENT_MAX) : TEAZE_RECENT_MAX;
+      return normalized.slice(-n);
     } catch (_) { return []; }
   }
 
-  /** Keeps only the last 12 IDs per bucket. Overwrites older history. */
+  /** Keeps only the last N IDs per bucket. Overwrites older history. */
   function saveTeazeRecentIds(bucketKey, ids) {
     try {
       localStorage.setItem(bucketKey, JSON.stringify(ids.slice(-TEAZE_RECENT_MAX)));
@@ -297,9 +317,10 @@
 
   /**
    * Picks 3 suggestions with anti-repeat. excludeIds = currently visible 3 (must not reappear on MORE OPTIONS).
-   * - Preferred: not in exclude, not in last-12 history.
+   * - If bucket has fewer than N+6 items, reduce N for this bucket (graceful degrade).
+   * - Preferred: not in exclude, not in last-N history.
    * - Fallback: not in exclude (allow recent if pool small).
-   * - Final fallback: entire bucket (graceful degrade, never error).
+   * - Content filter: reject suggestions with banned phrases; replace with another.
    */
   function pickTeazeMessages(category, moment, style, situation, excludeIds) {
     const catData = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[category];
@@ -309,21 +330,38 @@
     if (!bucket || !bucket.length) return [];
 
     const bucketKey = teazeBucketKey(category, moment, style, situation);
-    const recentIds = getTeazeRecentIds(bucketKey);
-    const exclude = new Set(excludeIds || []);
+    // Graceful degrade: if bucket has fewer than N+6, use smaller N so we can still get fresh sets
+    const effectiveMax = Math.min(TEAZE_RECENT_MAX, Math.max(0, bucket.length - 6));
+    const recentIds = getTeazeRecentIds(bucketKey, effectiveMax);
+    const exclude = new Set((excludeIds || []).map(function(id) { return String(id); }));
 
-    // Preferred: avoid both current 3 and last 12 shown.
     const preferred = bucket.filter(function(m) {
-      return !exclude.has(m.id) && !recentIds.includes(m.id);
+      return !exclude.has(String(m.id)) && !recentIds.includes(String(m.id));
     });
-    // Fallback: avoid current 3 only (ok to repeat from history if dataset small).
-    const fallback = bucket.filter(function(m) { return !exclude.has(m.id); });
+    const fallback = bucket.filter(function(m) { return !exclude.has(String(m.id)); });
     let pool = preferred.length >= 3 ? preferred : fallback;
-    // Final fallback: use full bucket (allow repeats only when no other choice).
     if (pool.length === 0) pool = bucket;
 
     const shuffled = pool.slice().sort(function() { return Math.random() - 0.5; });
-    return shuffled.slice(0, 3);
+    let picked = shuffled.slice(0, 3);
+
+    // Content filter: replace any with banned phrases
+    for (let i = 0; i < picked.length; i++) {
+      if (hasBannedPhrase(picked[i].text)) {
+        const pickedIds = {};
+        for (let k = 0; k < picked.length; k++) pickedIds[picked[k].id] = true;
+        for (let j = 0; j < shuffled.length; j++) {
+          const m = shuffled[j];
+          if (!pickedIds[m.id] && !hasBannedPhrase(m.text)) {
+            picked[i] = m;
+            pickedIds[m.id] = true;
+            break;
+          }
+        }
+      }
+    }
+
+    return picked;
   }
 
   function makeTeazeShareUrl() {
@@ -457,6 +495,7 @@
       </div>`;
     const safetyMicrocopy = teazeMoment === 'BOUNDARY' ? '<p class="teaze-safety-microcopy">If you feel unsafe, stop replying and use platform block/report.</p>' : '';
     const bannerHtml = teazeSeedBannerData ? buildTeazeSeedBanner() : '';
+    const categoryMicrocopy = teazeCategory === 'GENERAL' ? 'Short. Human. Copy/paste.' : 'Playful, not cringe.';
 
     render(`
       <div class="teaze-screen" data-teaze-root>
@@ -473,10 +512,10 @@
           ${situationGroupHtml}
         </div>
         <div class="teaze-suggestions-header">
-          <p class="teaze-copy-hint">Copy one. Paste in DM.</p>
-          <button type="button" class="btn-teaze-more" data-action="new-options">MORE OPTIONS ↻</button>
+          <button type="button" class="btn-teaze-more btn-teaze-more-top" data-action="new-options">MORE OPTIONS ↻</button>
         </div>
         <div class="teaze-messages">${msgBlocks}</div>
+        <p class="teaze-category-microcopy">${categoryMicrocopy}</p>
         ${safetyMicrocopy}
         <div class="teaze-share-row">
           <p class="teaze-share-hint">Screenshot & share.</p>
@@ -533,6 +572,7 @@
     const msg = bucket && bucket.find(function(m) { return m.id === messageId; });
     if (!msg) return;
     copyResultUrl(msg.text).then(function() {
+      showToast('Copied.');
       const btn = document.querySelector('[data-action="copy"][data-id="' + messageId + '"]');
       if (btn) {
         btn.textContent = 'COPIED';
@@ -748,7 +788,7 @@
         <h1 class="start-title">TEAZR</h1>
         <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
         <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
-        <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZE</a>
+        <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
         <div class="quiz-secondary-wrap">
           <button type="button" class="btn-quiz-secondary" onclick="TEAZR.start()">TAKE THE QUIZ</button>
           <p class="quiz-helper">6 questions · 30 seconds</p>
