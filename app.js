@@ -5,22 +5,35 @@
   const COOLDOWN_MS = 5 * 60 * 1000;
   const SHARE_BASE = 'https://teazr.app';
 
-  const TEAZE_MOMENTS = ['START', 'KEEP GOING', 'RECONNECT', 'CLOSE KINDLY', 'BOUNDARY'];
-  const TEAZE_MOMENTS_FLIRTY = ['START', 'KEEP GOING', 'RECONNECT', 'CLOSE KINDLY'];
+  const TEAZE_MOMENTS = ['START', 'KEEP_GOING', 'RECONNECT', 'CLOSE_KINDLY', 'BOUNDARY'];
+  const TEAZE_MOMENTS_FLIRTY = ['START', 'KEEP_GOING', 'RECONNECT', 'CLOSE_KINDLY'];
+  const TEAZE_MOMENTS_DISPLAY = { START: 'START', KEEP_GOING: 'KEEP GOING', RECONNECT: 'RECONNECT', CLOSE_KINDLY: 'CLOSE KINDLY', BOUNDARY: 'BOUNDARY' };
   const TEAZE_STYLES = ['PLAYFUL', 'CLASSY'];
-  const TEAZE_SITUATIONS = [
+  const TEAZE_SITUATIONS_BOUNDARY = [
     { id: 'unwanted_pic', label: 'Unwanted pic' },
     { id: 'too_pushy', label: 'Too pushy / won\'t stop' }
   ];
-  const TEAZE_RECENT_MAX = 18;
-  const APP_VERSION = '1.0';
+  const TEAZE_SITUATIONS_GENERAL = [
+    { id: 'ANY', label: 'Any' },
+    { id: 'after_story', label: 'After their story' },
+    { id: 'late_reply', label: 'Late reply' },
+    { id: 'first_message', label: 'First message' },
+    { id: 'reschedule', label: 'Reschedule' },
+    { id: 'they_went_quiet', label: 'They went quiet' }
+  ];
+  const TEAZE_RECENT_MAX = 30;
+  const RECENT_COPIED_MAX = 30;
+  const SAVED_MAX = 60;
+  const CATEGORY_STORAGE_KEY = 'teazr_category';
+  const APP_VERSION = '3';
 
   let teazeCategory = 'GENERAL';
   let teazeMoment = 'START';
   let teazeStyle = 'CLASSY';
-  let teazeSituation = 'unwanted_pic';
+  let teazeSituation = 'ANY';
   let teazeCurrentIds = [];
   let teazeSeedBannerData = null;
+  let teazeActiveTab = 'TODAY';
 
   const QUESTIONS = [
     { q: 'When you see someone you\'re attracted to, you typically…', a: ['Make direct eye contact', 'Glance and look away', 'Stay in your lane'] },
@@ -166,7 +179,7 @@
   }
 
   /** Whitelist: only these keys are sent. No message text, names, emails, identifiers. */
-  const ANALYTICS_PROPS_KEYS = ['category', 'moment', 'style', 'situation', 'index', 'version', 'seedPresent'];
+  const ANALYTICS_PROPS_KEYS = ['category', 'moment', 'style', 'situation', 'index', 'version', 'seedPresent', 'tab', 'bucketKey', 'saved'];
 
   function sanitizeAnalyticsProps(props) {
     if (!props || typeof props !== 'object') return {};
@@ -260,11 +273,14 @@
 
   /** Banned phrases (case-insensitive). Runtime safety filter. */
   const TEAZE_BANNED_PHRASES = [
-    'all is well', 'i trust', 'on your end', 'hope you\'re well', 'per my last message',
-    'just checking in', 'circling back', 'touch base', 'dear', 'kindly', 'sincerely',
-    'i wanted to reach out', 'i was wondering if', 'i feel like', 'i think that',
-    'i just', 'maybe', 'if that makes sense', 'how are you doing today',
-    'good morning', 'good evening', 'no worries at all', 'i hope this finds you well'
+    'all is well', 'i trust', 'at your earliest convenience', 'on your end',
+    'hope you\'re doing well', 'kindly', 'dear', 'sincerely', 'regards',
+    'following up', 'per my last message', 'touch base', 'circling back',
+    'i wanted to reach out', 'please advise', 'just checking in',
+    'i was wondering if', 'i feel like', 'i think that', 'i just', 'maybe',
+    'if that makes sense', 'how are you doing today', 'good morning', 'good evening',
+    'no worries at all', 'i hope this finds you well', 'trauma', 'healing',
+    'attachment style', 'attachment styles'
   ];
 
   function hasBannedPhrase(text) {
@@ -277,22 +293,19 @@
   }
 
   /**
-   * Bucket key for anti-repeat: category + moment + style + (situation if any).
-   * Same bucket = same suggestion history (e.g. GENERAL:START:CLASSY: vs GENERAL:BOUNDARY::unwanted_pic).
+   * Bucket key for anti-repeat: category|moment|style|situation.
    */
   function teazeBucketKey(category, moment, style, situation) {
     const m = String(moment).replace(/\s+/g, '_');
     const sty = (m === 'BOUNDARY') ? '' : String(style);
-    const sit = (m === 'BOUNDARY' && situation) ? String(situation) : '';
-    return 'teaz_v1:' + String(category) + ':' + m + ':' + sty + ':' + sit;
+    const sit = situation ? String(situation) : (m === 'BOUNDARY' ? 'unwanted_pic' : 'ANY');
+    return 'teaz_v3:' + String(category) + '|' + m + '|' + sty + '|' + sit;
   }
 
-  function teazeMessagesKey(moment, style, situation) {
+  function getEffectiveSituation(moment, situation) {
     const m = String(moment).replace(/\s+/g, '_');
-    if (m === 'BOUNDARY' && situation) {
-      return 'BOUNDARY:' + String(situation);
-    }
-    return m + ':' + String(style);
+    if (m === 'BOUNDARY') return situation || 'unwanted_pic';
+    return situation || 'ANY';
   }
 
   /** Returns last N shown IDs for this bucket from localStorage. maxCount limits how many we use (for small buckets). */
@@ -315,6 +328,63 @@
     } catch (_) {}
   }
 
+  const RECENT_COPIED_KEY = 'teazr_recent_copied';
+  const SAVED_KEY = 'teazr_saved';
+
+  function getRecentCopied() {
+    try {
+      const raw = localStorage.getItem(RECENT_COPIED_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+  }
+
+  function addToRecentCopied(text) {
+    if (!text || typeof text !== 'string') return;
+    let arr = getRecentCopied();
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    arr = arr.filter(function (x) { return x.text !== trimmed; });
+    arr.unshift({ text: trimmed, ts: Date.now() });
+    try {
+      localStorage.setItem(RECENT_COPIED_KEY, JSON.stringify(arr.slice(0, RECENT_COPIED_MAX)));
+    } catch (_) {}
+  }
+
+  function getSaved() {
+    try {
+      const raw = localStorage.getItem(SAVED_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+  }
+
+  function isSaved(text) {
+    const saved = getSaved();
+    return saved.some(function (x) { return x.text === (text || '').trim(); });
+  }
+
+  function toggleSaved(text) {
+    if (!text || typeof text !== 'string') return false;
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    let arr = getSaved();
+    const idx = arr.findIndex(function (x) { return x.text === trimmed; });
+    if (idx >= 0) {
+      arr.splice(idx, 1);
+    } else {
+      arr = arr.filter(function (x) { return x.text !== trimmed; });
+      arr.unshift({ text: trimmed, ts: Date.now() });
+      arr = arr.slice(0, SAVED_MAX);
+    }
+    try {
+      localStorage.setItem(SAVED_KEY, JSON.stringify(arr));
+    } catch (_) {}
+    return idx < 0;
+  }
+
   /**
    * Picks 3 suggestions with anti-repeat. excludeIds = currently visible 3 (must not reappear on MORE OPTIONS).
    * - If bucket has fewer than N+6 items, reduce N for this bucket (graceful degrade).
@@ -323,13 +393,13 @@
    * - Content filter: reject suggestions with banned phrases; replace with another.
    */
   function pickTeazeMessages(category, moment, style, situation, excludeIds) {
-    const catData = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[category];
-    if (!catData) return [];
-    const msgKey = teazeMessagesKey(moment, style, situation);
-    const bucket = catData[msgKey];
+    const effSit = getEffectiveSituation(moment, situation);
+    const bucket = (typeof window.getTeazeBucket === 'function')
+      ? window.getTeazeBucket(category, moment, style, effSit)
+      : [];
     if (!bucket || !bucket.length) return [];
 
-    const bucketKey = teazeBucketKey(category, moment, style, situation);
+    const bucketKey = teazeBucketKey(category, moment, style, effSit);
     // Graceful degrade: if bucket has fewer than N+6, use smaller N so we can still get fresh sets
     const effectiveMax = Math.min(TEAZE_RECENT_MAX, Math.max(0, bucket.length - 6));
     const recentIds = getTeazeRecentIds(bucketKey, effectiveMax);
@@ -369,13 +439,13 @@
       c: teazeCategory,
       m: teazeMoment,
       s: teazeStyle,
-      sit: teazeMoment === 'BOUNDARY' ? teazeSituation : null,
+      sit: teazeMoment === 'BOUNDARY' ? teazeSituation : (teazeSituation !== 'ANY' ? teazeSituation : null),
       i: teazeCurrentIds.slice(0, 3)
     };
     if (teazeMoment === 'BOUNDARY') {
       obj.l = (teazeMoment || '') + '/' + (teazeSituation || '');
-    } else if (teazeMoment || teazeStyle) {
-      obj.l = (teazeMoment || '') + '/' + (teazeStyle || '');
+    } else {
+      obj.l = (teazeMoment || '') + '/' + (teazeStyle || '') + (teazeSituation && teazeSituation !== 'ANY' ? '/' + teazeSituation : '');
     }
     const json = JSON.stringify(obj);
     const enc = toUrlSafeBase64(json);
@@ -388,6 +458,55 @@
       return 'Someone sent a Teaz (' + lbl + '). Try yours: ' + url;
     }
     return 'Try \'Send a Teaz\' on Teazr: ' + (url || 'teazr.app/teaze');
+  }
+
+  function isQaMode() {
+    const q = typeof window !== 'undefined' && window.location && window.location.search;
+    return q ? new URLSearchParams(q).get('qa') === '1' : false;
+  }
+
+  function runQaSpins() {
+    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
+    const effSit = getEffectiveSituation(teazeMoment, teazeSituation);
+    const bucket = (typeof window.getTeazeBucket === 'function')
+      ? window.getTeazeBucket(teazeCategory, teazeMoment, teazeStyle, effSit)
+      : [];
+    const poolSize = bucket ? bucket.length : 0;
+    const winSize = Math.min(30, Math.max(0, poolSize - 3));
+    const seen = {};
+    let uniqueCount = 0;
+    let repeats = 0;
+    let excludeIds = [];
+    for (let i = 0; i < 100; i++) {
+      const picked = pickTeazeMessages(teazeCategory, teazeMoment, teazeStyle, teazeSituation, excludeIds);
+      excludeIds = picked.map(function(m) { return m.id; });
+      if (picked.length) {
+        const recent = getTeazeRecentIds(bucketKey, winSize);
+        saveTeazeRecentIds(bucketKey, recent.concat(excludeIds));
+      }
+      for (let j = 0; j < picked.length; j++) {
+        const id = picked[j].id;
+        if (seen[id]) repeats++;
+        else { seen[id] = true; uniqueCount++; }
+      }
+    }
+    return { bucketKey, poolSize, winSize, uniqueCount, repeats };
+  }
+
+  function buildA2HSHint() {
+    try {
+      if (localStorage.getItem('teazr_a2hs_dismissed')) return '';
+    } catch (_) { return ''; }
+    const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/.test(ua);
+    let msg = '';
+    if (isIOS) msg = 'Share → Add to Home Screen';
+    else if (isAndroid) msg = 'Add to Home screen from browser menu';
+    if (!msg) return '';
+    return '<div class="teaze-a2hs-hint" data-a2hs>' +
+      msg + ' <button type="button" class="teaze-a2hs-dismiss" data-action="dismiss-a2hs" aria-label="Dismiss">×</button>' +
+      '</div>';
   }
 
   function buildTeazeSeedBanner() {
@@ -408,33 +527,78 @@
       if (!decoded) return null;
       const data = JSON.parse(decoded);
       if (!data || typeof data.m !== 'string') return null;
-      const moment = String(data.m).trim();
+      const momentRaw = String(data.m).trim().replace(/\s+/g, '_');
       const category = data.c && (data.c === 'GENERAL' || data.c === 'FLIRTY') ? data.c : 'GENERAL';
       const momentsForCat = category === 'GENERAL' ? TEAZE_MOMENTS : TEAZE_MOMENTS_FLIRTY;
-      if (!momentsForCat.includes(moment)) return null;
+      if (!momentsForCat.includes(momentRaw)) return null;
       let style = 'CLASSY';
       let situation = null;
-      if (moment === 'BOUNDARY') {
+      if (momentRaw === 'BOUNDARY') {
         situation = (data.sit === 'unwanted_pic' || data.sit === 'too_pushy') ? data.sit : 'unwanted_pic';
         if (category !== 'GENERAL') return null;
       } else {
         style = (data.s === 'PLAYFUL' || data.s === 'CLASSY') ? data.s : 'CLASSY';
+        situation = (data.sit && ['ANY','after_story','late_reply','first_message','reschedule','they_went_quiet'].indexOf(data.sit) >= 0) ? data.sit : 'ANY';
       }
       return {
         category: category,
-        moment: moment,
+        moment: momentRaw,
         style: style,
         situation: situation,
         ids: Array.isArray(data.i) ? data.i.slice(0, 3) : [],
-        label: typeof data.l === 'string' ? data.l : (moment + '/' + (situation || style))
+        label: typeof data.l === 'string' ? data.l : (momentRaw + '/' + (situation || style))
       };
     } catch (_) { return null; }
   }
 
   let teazeEmptyRetries = 0;
 
+  function renderRecentOrSavedTab(list, emptyMsg) {
+    const bannerHtml = teazeSeedBannerData ? buildTeazeSeedBanner() : '';
+    const itemsHtml = list.length === 0
+      ? '<p class="teaze-empty-hint">' + (emptyMsg || 'Nothing here yet.') + '</p>'
+      : list.map(function(item) {
+          const t = (item.text || '').trim();
+          const escaped = t.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          const saved = isSaved(t);
+          return `
+            <div class="teaze-message-card">
+              <p class="teaze-message-text">${escaped}</p>
+              <div class="teaze-card-actions">
+                <button type="button" class="btn-teaze-copy" data-action="copy" data-text="${escaped}">COPY</button>
+                <button type="button" class="btn-teaze-save ${saved ? 'saved' : ''}" data-action="save-toggle" data-text="${escaped}">${saved ? 'SAVED' : 'SAVE'}</button>
+              </div>
+            </div>`;
+        }).join('');
+    render(`
+      <div class="teaze-screen" data-teaze-root>
+        ${bannerHtml}
+        <a href="/" class="teaze-back" data-teaze-back>← Back</a>
+        <h1 class="teaze-title">SEND A TEAZ</h1>
+        <div class="teaze-tabs">
+          <button type="button" class="teaze-tab ${teazeActiveTab === 'TODAY' ? 'active' : ''}" data-tab="TODAY">TODAY</button>
+          <button type="button" class="teaze-tab ${teazeActiveTab === 'RECENT' ? 'active' : ''}" data-tab="RECENT">RECENT</button>
+          <button type="button" class="teaze-tab ${teazeActiveTab === 'SAVED' ? 'active' : ''}" data-tab="SAVED">SAVED</button>
+        </div>
+        <div class="teaze-messages">${itemsHtml}</div>
+        ${buildA2HSHint()}
+      </div>
+    `);
+  }
+
   function showTeazeScreen() {
-    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, teazeSituation);
+    if (teazeActiveTab === 'RECENT') {
+      const recent = getRecentCopied();
+      renderRecentOrSavedTab(recent, 'Nothing copied yet.');
+      return;
+    }
+    if (teazeActiveTab === 'SAVED') {
+      const saved = getSaved();
+      renderRecentOrSavedTab(saved, 'Nothing saved yet.');
+      return;
+    }
+
+    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
     const messages = pickTeazeMessages(teazeCategory, teazeMoment, teazeStyle, teazeSituation, teazeCurrentIds);
     if (!messages || messages.length === 0) {
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
@@ -457,20 +621,36 @@
     const momentsForCat = teazeCategory === 'GENERAL' ? TEAZE_MOMENTS : TEAZE_MOMENTS_FLIRTY;
     const momentOpts = momentsForCat.map(function(m) {
       const escaped = m.replace(/'/g, '&#39;');
-      return `<button type="button" class="teaze-selector-btn ${teazeMoment === m ? 'active' : ''}" data-moment="${escaped}">${m}</button>`;
+      const label = TEAZE_MOMENTS_DISPLAY[m] || m;
+      return `<button type="button" class="teaze-selector-btn ${teazeMoment === m ? 'active' : ''}" data-moment="${escaped}">${label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</button>`;
     }).join('');
     const styleOpts = teazeMoment === 'BOUNDARY' ? '' : TEAZE_STYLES.map(function(s) {
       return `<button type="button" class="teaze-selector-btn ${teazeStyle === s ? 'active' : ''}" data-style="${s}">${s}</button>`;
     }).join('');
-    const situationOpts = teazeMoment === 'BOUNDARY' ? TEAZE_SITUATIONS.map(function(sit) {
-      return `<button type="button" class="teaze-selector-btn ${teazeSituation === sit.id ? 'active' : ''}" data-situation="${sit.id}">${sit.label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</button>`;
-    }).join('') : '';
+    const situationList = teazeMoment === 'BOUNDARY' ? TEAZE_SITUATIONS_BOUNDARY : TEAZE_SITUATIONS_GENERAL;
+    const situationGroupHtml = teazeMoment === 'BOUNDARY'
+      ? situationList.map(function(sit) {
+          return `<button type="button" class="teaze-selector-btn ${teazeSituation === sit.id ? 'active' : ''}" data-situation="${sit.id}">${sit.label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</button>`;
+        }).join('')
+      : situationList.map(function(sit) {
+          return `<option value="${sit.id}" ${teazeSituation === sit.id ? 'selected' : ''}>${sit.label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</option>`;
+        }).join('');
+    const situationUi = `
+      <div class="teaze-selector-group">
+        <label class="teaze-selector-label">Situation</label>
+        ${teazeMoment === 'BOUNDARY' ? '<div class="teaze-selector-btns">' + situationGroupHtml + '</div>' : '<select class="teaze-situation-select" data-situation-select aria-label="Situation" style="font-size:16px">' + situationGroupHtml + '</select>'}
+      </div>`;
 
     const msgBlocks = messages.map(function(m, idx) {
+      const escaped = m.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const saved = isSaved(m.text);
       return `
         <div class="teaze-message-card" data-id="${m.id}">
-          <p class="teaze-message-text">${m.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
-          <button type="button" class="btn-teaze-copy" data-action="copy" data-id="${m.id}" data-index="${idx}">COPY</button>
+          <p class="teaze-message-text">${escaped}</p>
+          <div class="teaze-card-actions">
+            <button type="button" class="btn-teaze-copy" data-action="copy" data-id="${m.id}" data-index="${idx}">COPY</button>
+            <button type="button" class="btn-teaze-save ${saved ? 'saved' : ''}" data-action="save-toggle" data-id="${m.id}" aria-label="${saved ? 'Unsave' : 'Save'}">${saved ? 'SAVED' : 'SAVE'}</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -480,11 +660,6 @@
         <label class="teaze-selector-label">Styles</label>
         <div class="teaze-selector-btns">${styleOpts}</div>
       </div>`;
-    const situationGroupHtml = teazeMoment === 'BOUNDARY' ? `
-      <div class="teaze-selector-group">
-        <label class="teaze-selector-label">Situation</label>
-        <div class="teaze-selector-btns">${situationOpts}</div>
-      </div>` : '';
     const categoryOpts = `
       <div class="teaze-selector-group">
         <label class="teaze-selector-label">Category</label>
@@ -509,10 +684,17 @@
             <div class="teaze-selector-btns">${momentOpts}</div>
           </div>
           ${styleGroupHtml}
-          ${situationGroupHtml}
+          ${situationUi}
+        </div>
+        <div class="teaze-tabs">
+          <button type="button" class="teaze-tab ${teazeActiveTab === 'TODAY' ? 'active' : ''}" data-tab="TODAY">TODAY</button>
+          <button type="button" class="teaze-tab ${teazeActiveTab === 'RECENT' ? 'active' : ''}" data-tab="RECENT">RECENT</button>
+          <button type="button" class="teaze-tab ${teazeActiveTab === 'SAVED' ? 'active' : ''}" data-tab="SAVED">SAVED</button>
         </div>
         <div class="teaze-suggestions-header">
-          <button type="button" class="btn-teaze-more btn-teaze-more-top" data-action="new-options">MORE OPTIONS ↻</button>
+          <div class="btn-teaze-more-wrap">
+            <button type="button" class="btn-teaze-more" data-action="new-options">MORE ↻</button>
+          </div>
         </div>
         <div class="teaze-messages">${msgBlocks}</div>
         <p class="teaze-category-microcopy">${categoryMicrocopy}</p>
@@ -522,6 +704,8 @@
           <button type="button" class="btn-teaze-whatsapp" data-action="share-whatsapp">SHARE ON WHATSAPP</button>
           <button type="button" class="btn-teaze-copy-link" data-action="copy-link">COPY LINK</button>
         </div>
+        ${buildA2HSHint()}
+        ${isQaMode() ? '<div class="teaze-qa-panel" data-qa-panel><button type="button" data-action="qa-run">Run 100 spins</button><pre id="teaze-qa-output"></pre></div>' : ''}
       </div>
     `);
   }
@@ -529,23 +713,23 @@
   function setTeazeCategory(c) {
     if (c === teazeCategory) return;
     teazeCategory = c;
-    // BOUNDARY is GENERAL-only: switching to FLIRTY resets to START and clears situation
+    try { localStorage.setItem(CATEGORY_STORAGE_KEY, c); } catch (_) {}
     if (c === 'FLIRTY' && teazeMoment === 'BOUNDARY') {
       teazeMoment = 'START';
-      teazeSituation = 'unwanted_pic';
+      teazeSituation = 'ANY';
       teazeStyle = 'CLASSY';
     }
     teazeCurrentIds = [];
-    sendTeazeEvent('category_selected', { category: c });
+    sendTeazeEvent('category_changed', { category: c });
     showTeazeScreen();
   }
 
   function setTeazeMoment(m) {
     if (m === teazeMoment) return;
     teazeMoment = m;
-    if (m === 'BOUNDARY') teazeSituation = 'unwanted_pic';
+    teazeSituation = (m === 'BOUNDARY') ? 'unwanted_pic' : 'ANY';
     teazeCurrentIds = [];
-    sendTeazeEvent('moment_selected', { moment: m });
+    sendTeazeEvent('moment_changed', { moment: m });
     showTeazeScreen();
   }
 
@@ -553,7 +737,7 @@
     if (s === teazeStyle) return;
     teazeStyle = s;
     teazeCurrentIds = [];
-    sendTeazeEvent('style_selected', { style: s });
+    sendTeazeEvent('style_changed', { style: s });
     showTeazeScreen();
   }
 
@@ -561,18 +745,47 @@
     if (sit === teazeSituation) return;
     teazeSituation = sit;
     teazeCurrentIds = [];
-    sendTeazeEvent('situation_selected', { situation: sit });
+    sendTeazeEvent('situation_changed', { situation: sit });
     showTeazeScreen();
   }
 
-  function copyTeazeMessage(messageId, index) {
-    const msgKey = teazeMessagesKey(teazeMoment, teazeStyle, teazeSituation);
-    const catData = window.TEAZE_MESSAGES && window.TEAZE_MESSAGES[teazeCategory];
-    const bucket = catData && catData[msgKey];
+  function copyTeazeText(text) {
+    if (!text) return;
+    const decoded = text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
+    copyResultUrl(decoded).then(function() {
+      addToRecentCopied(decoded);
+      showToast('Copied');
+      sendTeazeEvent('copy_clicked', { tab: teazeActiveTab });
+    }).catch(function() { showToast('Could not copy'); });
+  }
+
+  function toggleTeazeSave(text) {
+    if (!text) return;
+    const decoded = typeof text === 'string' && text.indexOf('&') >= 0
+      ? text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&#39;/g, "'")
+      : text;
+    const nowSaved = toggleSaved(decoded);
+    showToast(nowSaved ? 'Saved' : 'Removed');
+    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
+    sendTeazeEvent('save_toggled', { saved: nowSaved, bucketKey: bucketKey });
+    if (teazeActiveTab === 'SAVED' || teazeActiveTab === 'TODAY') showTeazeScreen();
+  }
+
+  function getMessageTextById(messageId) {
+    const effSit = getEffectiveSituation(teazeMoment, teazeSituation);
+    const bucket = (typeof window.getTeazeBucket === 'function')
+      ? window.getTeazeBucket(teazeCategory, teazeMoment, teazeStyle, effSit)
+      : [];
     const msg = bucket && bucket.find(function(m) { return m.id === messageId; });
-    if (!msg) return;
-    copyResultUrl(msg.text).then(function() {
-      showToast('Copied.');
+    return msg ? msg.text : null;
+  }
+
+  function copyTeazeMessage(messageId, index) {
+    const text = getMessageTextById(messageId);
+    if (!text) return;
+    copyResultUrl(text).then(function() {
+      addToRecentCopied(text);
+      showToast('Copied');
       const btn = document.querySelector('[data-action="copy"][data-id="' + messageId + '"]');
       if (btn) {
         btn.textContent = 'COPIED';
@@ -584,13 +797,8 @@
           btn.disabled = false;
         }, 1000);
       }
-      sendTeazeEvent('copy_clicked', {
-        category: teazeCategory,
-        moment: teazeMoment,
-        style: teazeMoment === 'BOUNDARY' ? null : teazeStyle,
-        situation: teazeMoment === 'BOUNDARY' ? teazeSituation : null,
-        index: index
-      });
+      const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
+      sendTeazeEvent('copy_clicked', { tab: teazeActiveTab, bucketKey: bucketKey, index: index });
     }).catch(function() { showToast('Could not copy'); });
   }
 
@@ -600,12 +808,8 @@
       btn.disabled = true;
       btn.textContent = 'REFRESHING…';
     }
-    sendTeazeEvent('more_options_clicked', {
-      category: teazeCategory,
-      moment: teazeMoment,
-      style: teazeMoment === 'BOUNDARY' ? null : teazeStyle,
-      situation: teazeMoment === 'BOUNDARY' ? teazeSituation : null
-    });
+    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
+    sendTeazeEvent('more_options_clicked', { bucketKey: bucketKey });
     setTimeout(function() {
       showTeazeScreen();
     }, 280);
@@ -638,15 +842,32 @@
   function setupTeazeClickDelegation() {
     const app = document.getElementById('app');
     if (!app) return;
+    app.addEventListener('change', function handleTeazeChange(e) {
+      if (e.target && e.target.getAttribute && e.target.getAttribute('data-situation-select') !== null && app.querySelector('[data-teaze-root]')) {
+        const val = e.target.value;
+        if (val && val !== teazeSituation) setTeazeSituation(val);
+      }
+    });
     app.addEventListener('click', function handleTeazeClick(e) {
       if (!app.querySelector('[data-teaze-root]')) return;
       const target = e.target;
+      const tabBtn = target.closest('[data-tab]');
       const categoryBtn = target.closest('[data-category]');
       const momentBtn = target.closest('[data-moment]');
       const styleBtn = target.closest('[data-style]');
       const situationBtn = target.closest('[data-situation]');
       const actionEl = target.closest('[data-action]');
       const backLink = target.closest('[data-teaze-back]');
+
+      if (tabBtn) {
+        const tab = tabBtn.getAttribute('data-tab');
+        if (tab && tab !== teazeActiveTab) {
+          teazeActiveTab = tab;
+          sendTeazeEvent('tab_changed', { tab: tab });
+          showTeazeScreen();
+        }
+        return;
+      }
 
       if (backLink) {
         e.preventDefault();
@@ -680,11 +901,29 @@
           return;
         }
         if (action === 'copy') {
+          const textRaw = actionEl.getAttribute('data-text');
+          if (textRaw != null) {
+            copyTeazeText(textRaw);
+            return;
+          }
           const idRaw = actionEl.getAttribute('data-id');
           const idxRaw = actionEl.getAttribute('data-index');
           if (idRaw != null && String(idRaw).length > 0) {
             const index = idxRaw != null ? parseInt(idxRaw, 10) : 0;
             copyTeazeMessage(String(idRaw), isNaN(index) ? 0 : index);
+          }
+          return;
+        }
+        if (action === 'save-toggle') {
+          const textRaw = actionEl.getAttribute('data-text');
+          if (textRaw != null) {
+            toggleTeazeSave(textRaw);
+            return;
+          }
+          const idRaw = actionEl.getAttribute('data-id');
+          if (idRaw != null) {
+            const text = getMessageTextById(String(idRaw));
+            if (text) toggleTeazeSave(text);
           }
           return;
         }
@@ -701,6 +940,20 @@
           showTeazeScreen();
           return;
         }
+        if (action === 'dismiss-a2hs') {
+          try { localStorage.setItem('teazr_a2hs_dismissed', '1'); } catch (_) {}
+          const el = document.querySelector('[data-a2hs]');
+          if (el) el.remove();
+          return;
+        }
+        if (action === 'qa-run') {
+          const out = document.getElementById('teaze-qa-output');
+          if (out) {
+            const r = runQaSpins();
+            out.textContent = 'bucketKey: ' + r.bucketKey + '\npoolSize: ' + r.poolSize + '\nantiRepeatWindow: ' + r.winSize + '\nuniqueReturned: ' + r.uniqueCount + '\nrepeats: ' + r.repeats;
+          }
+          return;
+        }
       }
     });
   }
@@ -708,20 +961,23 @@
   function initTeaze() {
     const seed = parseTeazeSeedParam();
     teazeSeedBannerData = seed;
-    teazeCategory = 'GENERAL';
+    try {
+      const stored = localStorage.getItem(CATEGORY_STORAGE_KEY);
+      teazeCategory = (stored === 'FLIRTY' || stored === 'GENERAL') ? stored : 'GENERAL';
+    } catch (_) { teazeCategory = 'GENERAL'; }
     teazeMoment = 'START';
     teazeStyle = 'CLASSY';
-    teazeSituation = 'unwanted_pic';
+    teazeSituation = 'ANY';
     teazeCurrentIds = [];
+    teazeActiveTab = 'TODAY';
     if (seed) {
       teazeCategory = seed.category;
       teazeMoment = seed.moment;
       teazeStyle = seed.style || 'CLASSY';
-      teazeSituation = seed.situation || 'unwanted_pic';
-      // BOUNDARY is GENERAL-only: reject FLIRTY+BOUNDARY from seed
+      teazeSituation = seed.situation || (seed.moment === 'BOUNDARY' ? 'unwanted_pic' : 'ANY');
       if (teazeCategory === 'FLIRTY' && teazeMoment === 'BOUNDARY') {
         teazeMoment = 'START';
-        teazeSituation = 'unwanted_pic';
+        teazeSituation = 'ANY';
         teazeStyle = 'CLASSY';
       }
     }

@@ -7,13 +7,15 @@
 body {
   background: #0a0a0a;
   color: #fff;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 1rem 1.25rem;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
 #app {
@@ -699,6 +701,7 @@ body {
   width: 100%;
   max-width: 480px;
   padding-top: 1.25rem;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .teaze-share-hint {
@@ -799,4 +802,177 @@ body {
 .btn-teaze-link:hover {
   color: rgba(180, 50, 50, 1);
   border-color: rgba(180, 50, 50, 0.8);
+}
+
+/* Tabs */
+.teaze-tabs {
+  display: flex;
+  gap: 0.25rem;
+  width: 100%;
+  max-width: 480px;
+  margin: 0.5rem 0;
+}
+
+.teaze-tab {
+  flex: 1;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.teaze-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.teaze-tab.active {
+  border-color: rgba(180, 50, 50, 0.6);
+  background: rgba(180, 50, 50, 0.15);
+  color: #fff;
+}
+
+/* Card actions: COPY + SAVE */
+.teaze-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-teaze-copy {
+  flex: 1;
+  min-width: 80px;
+  min-height: 44px;
+}
+
+.btn-teaze-save {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btn-teaze-save:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.btn-teaze-save.saved {
+  border-color: rgba(80, 140, 80, 0.5);
+  background: rgba(80, 140, 80, 0.15);
+  color: rgba(180, 255, 180, 0.95);
+}
+
+/* Situation select - prevent iOS zoom */
+.teaze-situation-select {
+  font-size: 16px;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Empty state */
+.teaze-empty-hint {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 1.5rem 1rem;
+  max-width: 20em;
+  margin: 0 auto;
+}
+
+/* MORE button - 44px min hit target */
+.btn-teaze-more-wrap {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.25rem 0;
+}
+
+.btn-teaze-more {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A2HS hint */
+.teaze-a2hs-hint {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 1rem;
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.teaze-a2hs-dismiss {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.teaze-a2hs-dismiss:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* QA panel - debug only */
+.teaze-qa-panel {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  font-size: 0.8rem;
+}
+
+.teaze-qa-panel button {
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.teaze-qa-panel pre {
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
 }

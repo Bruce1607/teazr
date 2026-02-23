@@ -353,6 +353,46 @@
       { id: '38', text: 'Closing this with grace. Be well.' },
       { id: '39', text: 'You\'re wonderful. I\'m stepping back. Take care.' }
     ],
+    'START:PLAYFUL:after_story': [
+      { id: '0', text: 'Saw your story. Had to say something.' },
+      { id: '1', text: 'Your story got me. Hi.' },
+      { id: '2', text: 'Couldn\'t scroll past that. Hey.' },
+      { id: '3', text: 'That story. Had to reach out.' },
+      { id: '4', text: 'Saw it. Couldn\'t resist.' },
+      { id: '5', text: 'Your story reminded me of you.' },
+      { id: '6', text: 'That made me think of you.' },
+      { id: '7', text: 'Noticed your story. Hi.' }
+    ],
+    'START:CLASSY:after_story': [
+      { id: '0', text: 'Saw your story. You crossed my mind.' },
+      { id: '1', text: 'That resonated. Wanted to say hello.' },
+      { id: '2', text: 'Your story caught my attention.' },
+      { id: '3', text: 'Noticed. Reaching out.' }
+    ],
+    'START:PLAYFUL:late_reply': [
+      { id: '0', text: 'No worries on the delay. Still here.' },
+      { id: '1', text: 'Took your time. I get it.' },
+      { id: '2', text: 'Finally. Worth the wait.' },
+      { id: '3', text: 'You showed up. Good.' }
+    ],
+    'START:PLAYFUL:they_went_quiet': [
+      { id: '0', text: 'Hey. You went quiet. All good?' },
+      { id: '1', text: 'Disappeared on me. Still around?' },
+      { id: '2', text: 'No pressure. Just checking in.' },
+      { id: '3', text: 'You dropped off. Everything okay?' }
+    ],
+    'START:PLAYFUL:first_message': [
+      { id: '0', text: 'First message. Make it count.' },
+      { id: '1', text: 'Here goes nothing. Hi.' },
+      { id: '2', text: 'Taking the leap. Hey.' },
+      { id: '3', text: 'Finally reaching out. Hi.' }
+    ],
+    'START:PLAYFUL:reschedule': [
+      { id: '0', text: 'Rain check? Let\'s try again.' },
+      { id: '1', text: 'Life got in the way. Still want to connect.' },
+      { id: '2', text: 'Plans fell through. Next time?' },
+      { id: '3', text: 'Had to bail. Making it up to you.' }
+    ],
     'BOUNDARY:unwanted_pic': [
       { id: '0', text: 'I\'m not comfortable with that. Please don\'t send more.' },
       { id: '1', text: 'That\'s not okay. I\'d like you to stop.' },
@@ -393,7 +433,8 @@
       { id: '36', text: 'I need you to stop sending that. Now.' },
       { id: '37', text: 'That\'s not for me. Please respect that.' },
       { id: '38', text: 'I\'ve made myself clear. Please stop.' },
-      { id: '39', text: 'Not comfortable. Don\'t send again.' }
+      { id: '39', text: 'Not comfortable. Don\'t send again.' },
+      { id: '40', text: 'That\'s not okay. I\'ll block if it happens again.' }
     ],
     'BOUNDARY:too_pushy': [
       { id: '0', text: 'I need you to slow down. I\'ve said no.' },
@@ -784,6 +825,24 @@
     FLIRTY: FLIRTY_MESSAGES
   };
 
+  /** Get bucket with fallback: specific situation -> ANY -> base (moment:style).
+   * For BOUNDARY: uses BOUNDARY:situation only. */
+  function getTeazeBucket(category, moment, style, situation) {
+    const cat = TEAZE_MESSAGES[category];
+    if (!cat) return [];
+    const m = String(moment).replace(/\s+/g, '_');
+    if (m === 'BOUNDARY') {
+      return cat['BOUNDARY:' + (situation || 'unwanted_pic')] || [];
+    }
+    const base = m + ':' + style;
+    if (situation && situation !== 'ANY') {
+      const specific = cat[base + ':' + situation];
+      if (specific && specific.length) return specific;
+    }
+    return cat[base] || [];
+  }
+
   global.TEAZE_MESSAGES = TEAZE_MESSAGES;
   global.TEAZE_CATEGORIES = TEAZE_CATEGORIES;
+  global.getTeazeBucket = getTeazeBucket;
 })(typeof window !== 'undefined' ? window : this);
