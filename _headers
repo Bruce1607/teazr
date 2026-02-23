@@ -1,30 +1,36 @@
 # HTML routes: no cache to avoid stale UI on back/forward navigation
 /
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Pragma: no-cache
   Expires: 0
 
 /index.html
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Pragma: no-cache
   Expires: 0
 
+# /teaze: no-store for IG in-app browser to always fetch latest (query params, subpaths)
 /teaze
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Pragma: no-cache
+  Expires: 0
+
+/teaze*
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Pragma: no-cache
   Expires: 0
 
 /teaze/
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Pragma: no-cache
   Expires: 0
 
 /teaze/index.html
-  Cache-Control: no-cache, no-store, must-revalidate
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
   Pragma: no-cache
   Expires: 0
 
-# Static assets: cache with revalidation (query params used for cache busting)
+# Static assets: cache with revalidation (versioned/hashed filenames use ?v= for busting)
 /*.css
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 

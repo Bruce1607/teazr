@@ -1,5 +1,6 @@
 (function() {
   'use strict';
+  if (typeof console !== 'undefined' && console.log) { console.log('TEAZR BUILD:', '3'); }
 
   const COOLDOWN_KEY = 'teazr_cooldown';
   const COOLDOWN_MS = 5 * 60 * 1000;
