@@ -1,6 +1,16 @@
 export async function onRequest({ request, next }) {
   const url = new URL(request.url);
   const host = url.hostname;
+  const pathname = url.pathname;
+
+  // Canonicalize /teaze/ -> /teaze (301), preserve query string (utm, fbclid, v, cb, etc.)
+  if (pathname === '/teaze/' || pathname === '/teaze') {
+    if (pathname.endsWith('/')) {
+      const dest = new URL(request.url);
+      dest.pathname = '/teaze';
+      return Response.redirect(dest.toString(), 301);
+    }
+  }
 
   // Redirect teazr.pages.dev and *.teazr.pages.dev to teazr.app
   // Preserve path + query. Do NOT redirect teazr.app or www.teazr.app (avoid loop).
@@ -15,5 +25,20 @@ export async function onRequest({ request, next }) {
     return Response.redirect(destUrl.toString(), 301);
   }
 
-  return next();
+  const response = await next();
+
+  // /teaze HTML: disable caching so IG in-app and Chrome always get latest (no stale version)
+  if (pathname === '/teaze' || pathname.startsWith('/teaze/')) {
+    const newResponse = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: new Headers(response.headers)
+    });
+    newResponse.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    newResponse.headers.set('Pragma', 'no-cache');
+    newResponse.headers.set('Expires', '0');
+    return newResponse;
+  }
+
+  return response;
 }

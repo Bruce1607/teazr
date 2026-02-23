@@ -1,3 +1,6 @@
+# Canonicalize /teaze/ -> /teaze (301). Query params preserved by middleware; _redirects may not preserve them.
+/teaze/  /teaze  301
+
 # Redirect to canonical domain. Note: _redirects cannot preserve query params (v, tab, qa, cb).
 # If params must be preserved, use Cloudflare dashboard Rules > Redirects > "Preserve query string".
 /* https://teazr.app/:splat 301!
