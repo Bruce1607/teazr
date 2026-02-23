@@ -25,6 +25,7 @@
   const RECENT_COPIED_MAX = 30;
   const SAVED_MAX = 60;
   const CATEGORY_STORAGE_KEY = 'teazr_category';
+  const TEAZE_TAB_KEY = 'teazr_teaze_tab';
   const APP_VERSION = '3';
 
   let teazeCategory = 'GENERAL';
@@ -863,6 +864,7 @@
         const tab = tabBtn.getAttribute('data-tab');
         if (tab && tab !== teazeActiveTab) {
           teazeActiveTab = tab;
+          try { localStorage.setItem(TEAZE_TAB_KEY, tab); } catch (_) {}
           sendTeazeEvent('tab_changed', { tab: tab });
           showTeazeScreen();
         }
@@ -969,7 +971,10 @@
     teazeStyle = 'CLASSY';
     teazeSituation = 'ANY';
     teazeCurrentIds = [];
-    teazeActiveTab = 'TODAY';
+    try {
+      const storedTab = localStorage.getItem(TEAZE_TAB_KEY);
+      teazeActiveTab = (storedTab === 'TODAY' || storedTab === 'RECENT' || storedTab === 'SAVED') ? storedTab : 'TODAY';
+    } catch (_) { teazeActiveTab = 'TODAY'; }
     if (seed) {
       teazeCategory = seed.category;
       teazeMoment = seed.moment;
@@ -1278,7 +1283,15 @@
   if (typeof window !== 'undefined') {
     setupTeazeClickDelegation();
     window.addEventListener('popstate', function() {
-      if (isTeazeRoute()) {
+      const path = getPath();
+      const showingTeaze = document.getElementById('app') && document.getElementById('app').querySelector('[data-teaze-root]');
+      if (path === '/' && showingTeaze) {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, '', '/teaze');
+        }
+        return;
+      }
+      if (path === '/teaze') {
         initTeaze();
       } else {
         init();
