@@ -1,8 +1,8 @@
-# /teaze/ -> /teaze 301 (preserves v, cb, utm, fbclid)
+# Canonical: /teaze (no trailing slash). /teaze/ -> /teaze 301, query params preserved
 /teaze/   /teaze   301
 
-# /teaze serves teaze page (200 rewrite)
-/teaze    /teaze/index.html   200
+# /teaze serves teaze page via flat file (avoids Cloudflare auto /teaze -> /teaze/ directory redirect)
+/teaze    /teaze.html   200
 
 # SPA fallback: MUST be last. Query params preserved.
 /*        /index.html   200

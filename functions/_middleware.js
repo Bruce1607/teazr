@@ -3,13 +3,12 @@ export async function onRequest({ request, next }) {
   const host = url.hostname;
   const pathname = url.pathname;
 
-  // Canonicalize /teaze/ -> /teaze (301), preserve query string (utm, fbclid, v, cb, etc.)
-  if (pathname === '/teaze/' || pathname === '/teaze') {
-    if (pathname.endsWith('/')) {
-      const dest = new URL(request.url);
-      dest.pathname = '/teaze';
-      return Response.redirect(dest.toString(), 301);
-    }
+  // Canonical: /teaze (no trailing slash). /teaze/ -> /teaze 301 only; NEVER redirect /teaze -> anywhere
+  // Query string (v, cb, utm, fbclid) preserved
+  if (pathname === '/teaze/') {
+    const dest = new URL(request.url);
+    dest.pathname = '/teaze';
+    return Response.redirect(dest.toString(), 301);
   }
 
   // Redirect teazr.pages.dev and *.teazr.pages.dev to teazr.app
