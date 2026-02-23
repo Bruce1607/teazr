@@ -574,7 +574,7 @@
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        <a href="/" class="teaze-back" data-teaze-back>← Back</a>
+        <a href="/teaze" class="teaze-back" data-teaze-back>← Back</a>
         <h1 class="teaze-title">SEND A TEAZ</h1>
         <div class="teaze-tabs">
           <button type="button" class="teaze-tab ${teazeActiveTab === 'TODAY' ? 'active' : ''}" data-tab="TODAY">TODAY</button>
@@ -605,7 +605,7 @@
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
       render(`
         <div class="teaze-screen" data-teaze-root>
-          <a href="/" class="teaze-back" data-teaze-back>← Back</a>
+          <a href="/teaze" class="teaze-back" data-teaze-back>← Back</a>
           <h1 class="teaze-title">SEND A TEAZ</h1>
           <p class="teaze-loading">Loading…</p>
         </div>
@@ -676,7 +676,7 @@
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        <a href="/" class="teaze-back" data-teaze-back>← Back</a>
+        <a href="/teaze" class="teaze-back" data-teaze-back>← Back</a>
         <h1 class="teaze-title">SEND A TEAZ</h1>
         <div class="teaze-selectors">
           ${categoryOpts}
@@ -873,7 +873,7 @@
 
       if (backLink) {
         e.preventDefault();
-        navigateHome();
+        handleTeazeBack();
         return;
       }
       if (categoryBtn) {
@@ -997,6 +997,27 @@
       window.location.pathname = '/teaze';
     }
     initTeaze();
+  }
+
+  function handleTeazeBack() {
+    const canGoBack = window.history.length > 1;
+    let referrerSameOrigin = false;
+    try {
+      if (document.referrer) {
+        const refOrigin = new URL(document.referrer).origin;
+        referrerSameOrigin = refOrigin === window.location.origin;
+      }
+    } catch (_) {}
+    if (canGoBack && referrerSameOrigin) {
+      window.history.back();
+      return;
+    }
+    teazeActiveTab = 'TODAY';
+    try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, '', '/teaze?v=1');
+    }
+    showTeazeScreen();
   }
 
   function navigateHome() {
