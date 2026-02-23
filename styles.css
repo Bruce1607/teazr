@@ -533,7 +533,8 @@ body {
   padding-left: 0.25rem;
 }
 
-.teaze-menu-btn {
+.teaze-menu-btn,
+.teaze-home-btn {
   font-weight: 500;
   letter-spacing: 0.04em;
 }

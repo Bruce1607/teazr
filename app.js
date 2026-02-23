@@ -528,15 +528,17 @@
       '</div>';
   }
 
+  const TEAZE_UI_VERSION = '2';
+
   function buildTeazeHeaderNav() {
-    const menuBtn = '<button type="button" class="teaze-nav-btn teaze-menu-btn" data-teaze-menu aria-label="Main menu">MENU</button>';
+    var homeBtn = '<button type="button" class="teaze-nav-btn teaze-home-btn" data-teaze-home aria-label="Return to main menu">HOME</button>';
     if (teazeActiveTab === 'COPIED' || teazeActiveTab === 'SAVED') {
       return '<div class="teaze-header-nav">' +
         '<button type="button" class="teaze-nav-btn teaze-back-btn" data-teaze-back aria-label="Back to Today">← Back</button>' +
-        menuBtn +
+        homeBtn +
         '</div>';
     }
-    return '<div class="teaze-header-nav">' + menuBtn + '</div>';
+    return '<div class="teaze-header-nav">' + homeBtn + '</div>';
   }
 
   function getTeazeBaseUrl() {
@@ -899,9 +901,9 @@
       const situationBtn = target.closest('[data-situation]');
       const actionEl = target.closest('[data-action]');
       const backLink = target.closest('[data-teaze-back]');
-      const menuBtn = target.closest('[data-teaze-menu]');
+      const homeBtn = target.closest('[data-teaze-home]');
 
-      if (menuBtn) {
+      if (homeBtn) {
         e.preventDefault();
         navigateHome();
         return;
@@ -1035,7 +1037,12 @@
   }
 
   function navigateToTeaze() {
-    const url = getPath() === '/teaze' ? getTeazeBaseUrl() : '/teaze';
+    var url;
+    if (getPath() === '/teaze') {
+      url = getTeazeBaseUrl();
+    } else {
+      url = '/teaze?v=' + TEAZE_UI_VERSION;
+    }
     if (window.history && window.history.pushState) {
       window.history.pushState({ teaze: true }, '', url);
     } else {
@@ -1071,7 +1078,7 @@
           <h1 class="start-title">TEAZR</h1>
           <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
           <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
-          <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
+          <a href="/teaze?v=2" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
           <div class="quiz-secondary-wrap">
             <button type="button" class="btn-quiz-secondary" onclick="TEAZR.start()">TAKE THE QUIZ</button>
             <p class="quiz-helper">6 questions · 30 seconds</p>
@@ -1090,7 +1097,7 @@
           <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
           <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
           <p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${msg}.</p>
-          <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
+          <a href="/teaze?v=2" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
           <div class="quiz-secondary-wrap">
             <p class="quiz-fun-note">Discover your flirt energy. If you dare.</p>
           </div>
@@ -1104,7 +1111,7 @@
         <h1 class="start-title">TEAZR</h1>
         <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
         <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
-        <a href="/teaze" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
+        <a href="/teaze?v=2" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
         <div class="quiz-secondary-wrap">
           <button type="button" class="btn-quiz-secondary" onclick="TEAZR.start()">TAKE THE QUIZ</button>
           <p class="quiz-helper">6 questions · 30 seconds</p>
