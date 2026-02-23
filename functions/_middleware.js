@@ -2,9 +2,12 @@ export async function onRequest({ request, next }) {
   const url = new URL(request.url);
   const host = url.hostname;
 
-  // NOTE: /teaze and /teaze/* are EXCLUDED from Functions via _routes.json.
-  // Trailing-slash normalization is handled ONLY by _redirects: /teaze/ -> /teaze 301.
-  // Do NOT add redirect logic here to avoid conflict with _redirects or Dashboard rules.
+  // /teaze and /teaze/*: NEVER redirect. Pass through to _redirects (which serves index.html 200).
+  // This allows /teaze to work on pages.dev for testing. No redirect loops.
+  const path = url.pathname;
+  if (path === "/teaze" || path.startsWith("/teaze/")) {
+    return next();
+  }
 
   // Redirect teazr.pages.dev and *.teazr.pages.dev to teazr.app
   // Preserve path + query. Do NOT redirect teazr.app or www.teazr.app (avoid loop).
