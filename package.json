@@ -1,0 +1,7 @@
+{
+  "name": "teazr",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/copy-pages-files.mjs"
+  }
+}
