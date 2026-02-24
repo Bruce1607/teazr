@@ -1,0 +1,4 @@
+# Cloudflare Pages build config
+# Ensures build output dir matches npm run build output (where _redirects lives)
+name = "teazr"
+pages_build_output_dir = "./dist/public"
