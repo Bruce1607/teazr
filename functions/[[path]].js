@@ -1,6 +1,8 @@
 /**
- * SPA catch-all: serves index.html with 200 for non-asset routes (/, /teaze, etc).
- * Passes through static assets to ASSETS. NO redirects, NO rewrites.
+ * SPA catch-all: serves HTML with 200 for non-asset routes. NO redirects.
+ * - /, /index.html -> index.html
+ * - /teaze, /teaze/ -> teaze.html
+ * - Other SPA routes -> index.html
  */
 const ASSET_EXTENSIONS = new Set([
   '.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.ico', '.webp',
@@ -19,14 +21,18 @@ function isAssetPath(pathname) {
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
-  const pathname = url.pathname;
+  const pathname = url.pathname.replace(/\/$/, '') || '/';
 
   if (isAssetPath(pathname)) {
     return context.env.ASSETS.fetch(context.request);
   }
 
-  // SPA shell: serve index.html with 200
-  const indexUrl = new URL('/index.html', url.origin);
-  const indexReq = new Request(indexUrl, context.request);
-  return context.env.ASSETS.fetch(indexReq);
+  let htmlPath = '/index.html';
+  if (pathname === '/teaze') {
+    htmlPath = '/teaze.html';
+  }
+
+  const htmlUrl = new URL(htmlPath, url.origin);
+  const htmlReq = new Request(htmlUrl, context.request);
+  return context.env.ASSETS.fetch(htmlReq);
 }

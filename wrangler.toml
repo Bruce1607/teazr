@@ -1,5 +1,3 @@
-# Cloudflare Pages build config
-# Build command + output dir must both be set so Pages runs build (not skipped)
+# Cloudflare Pages - build is configured in Pages UI (package.json "build" script)
 name = "teazr"
 pages_build_output_dir = "./dist/public"
-pages_build_command = "npm install && npm run build"
