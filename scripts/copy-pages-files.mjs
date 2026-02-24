@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copies static assets into the build output directory.
- * SPA routing is handled via Pages Functions (functions/[[path]].js) only.
- * NO _redirects, NO _routes.json (avoids "Failed to publish assets" bug).
+ * SPA routing via _redirects (/* /index.html 200) for Cloudflare Pages static deploy.
  *
  * Usage: node scripts/copy-pages-files.mjs
  * Env:   CLOUDFLARE_PAGES_OUTPUT_DIR (default: dist/public)
@@ -18,8 +17,8 @@ const ROOT = join(__dirname, '..');
 const OUTPUT_DIR = process.env.CLOUDFLARE_PAGES_OUTPUT_DIR || 'dist/public';
 const outPath = join(ROOT, OUTPUT_DIR);
 
-// Optional: _headers only (no _redirects, no _routes.json)
-const PAGES_FILES = ['_headers'];
+// Cloudflare Pages static files: _redirects (SPA fallback) + optional _headers
+const PAGES_FILES = ['_redirects', '_headers'];
 
 // Static assets to copy
 const STATIC_FILES = [
@@ -50,7 +49,7 @@ function main() {
 
   const copied = [];
 
-  // 1. Optional _headers (no _redirects, no _routes.json)
+  // 1. _redirects (required for SPA) + optional _headers
   for (const name of PAGES_FILES) {
     const src = join(ROOT, name);
     const dest = join(outPath, name);

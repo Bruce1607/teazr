@@ -1,3 +1,0 @@
-# Cloudflare Pages - build is configured in Pages UI (package.json "build" script)
-name = "teazr"
-pages_build_output_dir = "./dist/public"
