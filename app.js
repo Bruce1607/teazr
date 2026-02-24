@@ -530,6 +530,26 @@
 
   const TEAZE_UI_VERSION = '2';
 
+  function buildTeazeBackHomeBtn() {
+    return '<div class="teaze-back-home-bar">' +
+      '<button type="button" class="teaze-back-home-btn" data-teaze-back-home aria-label="Back to home">←</button>' +
+      '</div>';
+  }
+
+  function handleTeazeBackToHome() {
+    try {
+      var fromHome = sessionStorage.getItem('teazr_from_home') === '1';
+      if (fromHome && window.history && window.history.length > 1) {
+        sessionStorage.removeItem('teazr_from_home');
+        window.history.back();
+      } else {
+        navigateHome();
+      }
+    } catch (_) {
+      navigateHome();
+    }
+  }
+
   function buildTeazeHeaderNav() {
     var homeBtn = '<button type="button" class="teaze-nav-btn teaze-home-btn" data-teaze-home aria-label="Return to main menu">HOME</button>';
     if (teazeActiveTab === 'COPIED' || teazeActiveTab === 'SAVED') {
@@ -614,6 +634,7 @@
     const headerNav = buildTeazeHeaderNav();
     render(`
       <div class="teaze-screen" data-teaze-root>
+        ${buildTeazeBackHomeBtn()}
         ${bannerHtml}
         ${headerNav}
         <h1 class="teaze-title">SEND A TEAZ</h1>
@@ -646,6 +667,7 @@
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
       render(`
         <div class="teaze-screen" data-teaze-root>
+          ${buildTeazeBackHomeBtn()}
           ${buildTeazeHeaderNav()}
           <h1 class="teaze-title">SEND A TEAZ</h1>
           <p class="teaze-loading">Loading…</p>
@@ -717,6 +739,7 @@
     const headerNav = buildTeazeHeaderNav();
     render(`
       <div class="teaze-screen" data-teaze-root>
+        ${buildTeazeBackHomeBtn()}
         ${bannerHtml}
         ${headerNav}
         <h1 class="teaze-title">SEND A TEAZ</h1>
@@ -902,7 +925,13 @@
       const actionEl = target.closest('[data-action]');
       const backLink = target.closest('[data-teaze-back]');
       const homeBtn = target.closest('[data-teaze-home]');
+      const backHomeBtn = target.closest('[data-teaze-back-home]');
 
+      if (backHomeBtn) {
+        e.preventDefault();
+        handleTeazeBackToHome();
+        return;
+      }
       if (homeBtn) {
         e.preventDefault();
         navigateHome();
@@ -1043,6 +1072,7 @@
     } else {
       url = '/teaze?v=' + TEAZE_UI_VERSION;
     }
+    try { sessionStorage.setItem('teazr_from_home', '1'); } catch (_) {}
     if (window.history && window.history.pushState) {
       window.history.pushState({ teaze: true }, '', url);
     } else {
@@ -1347,6 +1377,13 @@
     window.addEventListener('popstate', function() {
       const path = getPath();
       if (path === '/teaze') {
+        try {
+          if (sessionStorage.getItem('teazr_from_home') === '1' && window.history.length > 1) {
+            sessionStorage.removeItem('teazr_from_home');
+            window.history.back();
+            return;
+          }
+        } catch (_) {}
         showTeazeScreen();
         return;
       }
