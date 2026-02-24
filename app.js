@@ -564,17 +564,6 @@
     }
   }
 
-  function buildTeazeHeaderNav() {
-    var homeBtn = '<button type="button" class="teaze-nav-btn teaze-home-btn" data-teaze-home aria-label="Return to main menu">HOME</button>';
-    if (teazeActiveTab === 'COPIED' || teazeActiveTab === 'SAVED') {
-      return '<div class="teaze-header-nav">' +
-        '<button type="button" class="teaze-nav-btn teaze-back-btn" data-teaze-back aria-label="Back to Today">← Back</button>' +
-        homeBtn +
-        '</div>';
-    }
-    return '<div class="teaze-header-nav">' + homeBtn + '</div>';
-  }
-
   function getTeazeBaseUrl() {
     const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     params.delete('tab');
@@ -645,11 +634,9 @@
               </div>
             </div>`;
         }).join('');
-    const headerNav = buildTeazeHeaderNav();
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        ${headerNav}
         <h1 class="teaze-title">SEND A TEAZ</h1>
         <div class="teaze-tabs">
           <button type="button" class="teaze-tab ${teazeActiveTab === 'TODAY' ? 'active' : ''}" data-tab="TODAY">TODAY</button>
@@ -680,7 +667,6 @@
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
       render(`
         <div class="teaze-screen" data-teaze-root>
-          ${buildTeazeHeaderNav()}
           <h1 class="teaze-title">SEND A TEAZ</h1>
           <p class="teaze-loading">Loading…</p>
         </div>
@@ -748,11 +734,9 @@
     const bannerHtml = teazeSeedBannerData ? buildTeazeSeedBanner() : '';
     const categoryMicrocopy = teazeCategory === 'GENERAL' ? 'Short. Human. Copy/paste.' : 'Playful, not cringe.';
 
-    const headerNav = buildTeazeHeaderNav();
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        ${headerNav}
         <h1 class="teaze-title">SEND A TEAZ</h1>
         <div class="teaze-selectors">
           ${categoryOpts}
@@ -944,14 +928,6 @@
       const styleBtn = target.closest('[data-style]');
       const situationBtn = target.closest('[data-situation]');
       const actionEl = target.closest('[data-action]');
-      const backLink = target.closest('[data-teaze-back]');
-      const homeBtn = target.closest('[data-teaze-home]');
-
-      if (homeBtn) {
-        e.preventDefault();
-        navigateHome();
-        return;
-      }
       if (tabBtn) {
         const tab = tabBtn.getAttribute('data-tab');
         if (tab && tab !== teazeActiveTab) {
@@ -963,11 +939,6 @@
         return;
       }
 
-      if (backLink) {
-        e.preventDefault();
-        handleTeazeBack();
-        return;
-      }
       if (categoryBtn) {
         const c = categoryBtn.getAttribute('data-category');
         if (c && (c === 'GENERAL' || c === 'FLIRTY')) setTeazeCategory(c);
@@ -1096,15 +1067,6 @@
       return;
     }
     initTeaze();
-  }
-
-  function handleTeazeBack() {
-    if (teazeActiveTab === 'COPIED' || teazeActiveTab === 'SAVED') {
-      teazeActiveTab = 'TODAY';
-      try { localStorage.setItem(TEAZE_TAB_KEY, 'TODAY'); } catch (_) {}
-      showTeazeScreen();
-      return;
-    }
   }
 
   function navigateHome() {
