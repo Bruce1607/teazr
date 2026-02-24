@@ -554,7 +554,13 @@
 
   function handleBackToHome() {
     try {
-      if (window.history && window.history.length > 1) {
+      const sameOriginReferrer =
+        document.referrer && (
+          document.referrer.includes("teazr.app") ||
+          document.referrer.includes("teazr.pages.dev")
+        );
+
+      if (sameOriginReferrer && window.history.length > 1) {
         window.history.back();
       } else {
         navigateHome();
