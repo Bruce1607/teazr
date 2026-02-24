@@ -530,13 +530,29 @@
 
   const TEAZE_UI_VERSION = '2';
 
-  function buildTeazeBackHomeBtn() {
-    return '<div class="teaze-back-home-bar">' +
-      '<button type="button" class="teaze-back-home-btn" data-teaze-back-home aria-label="Back to home">←</button>' +
+  /** Reusable BackButton: show on all non-home routes. history.back() if length>1 else navigate("/"). */
+  function buildBackButton() {
+    return '<div class="app-back-bar">' +
+      '<button type="button" class="app-back-btn" data-app-back aria-label="Back to home">←</button>' +
       '</div>';
   }
 
-  function handleTeazeBackToHome() {
+  function ensureBackButton() {
+    var path = getPath();
+    var wrap = document.getElementById('app-back-wrap');
+    if (path === '/') {
+      if (wrap) wrap.innerHTML = '';
+      return;
+    }
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'app-back-wrap';
+      document.body.insertBefore(wrap, document.getElementById('app'));
+    }
+    wrap.innerHTML = buildBackButton();
+  }
+
+  function handleBackToHome() {
     try {
       if (window.history && window.history.length > 1) {
         window.history.back();
@@ -632,7 +648,6 @@
     const headerNav = buildTeazeHeaderNav();
     render(`
       <div class="teaze-screen" data-teaze-root>
-        ${buildTeazeBackHomeBtn()}
         ${bannerHtml}
         ${headerNav}
         <h1 class="teaze-title">SEND A TEAZ</h1>
@@ -665,7 +680,6 @@
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
       render(`
         <div class="teaze-screen" data-teaze-root>
-          ${buildTeazeBackHomeBtn()}
           ${buildTeazeHeaderNav()}
           <h1 class="teaze-title">SEND A TEAZ</h1>
           <p class="teaze-loading">Loading…</p>
@@ -737,7 +751,6 @@
     const headerNav = buildTeazeHeaderNav();
     render(`
       <div class="teaze-screen" data-teaze-root>
-        ${buildTeazeBackHomeBtn()}
         ${bannerHtml}
         ${headerNav}
         <h1 class="teaze-title">SEND A TEAZ</h1>
@@ -903,6 +916,16 @@
     }).catch(function() { showToast('Could not copy'); });
   }
 
+  function setupGlobalBackButton() {
+    document.addEventListener('click', function handleAppBack(e) {
+      var target = e.target && e.target.closest ? e.target.closest('[data-app-back]') : null;
+      if (target) {
+        e.preventDefault();
+        handleBackToHome();
+      }
+    });
+  }
+
   function setupTeazeClickDelegation() {
     const app = document.getElementById('app');
     if (!app) return;
@@ -923,13 +946,7 @@
       const actionEl = target.closest('[data-action]');
       const backLink = target.closest('[data-teaze-back]');
       const homeBtn = target.closest('[data-teaze-home]');
-      const backHomeBtn = target.closest('[data-teaze-back-home]');
 
-      if (backHomeBtn) {
-        e.preventDefault();
-        handleTeazeBackToHome();
-        return;
-      }
       if (homeBtn) {
         e.preventDefault();
         navigateHome();
@@ -1060,6 +1077,7 @@
       }
     }
     sendTeazeEvent('teaz_opened', { seedPresent: !!seed });
+    ensureBackButton();
     showTeazeScreen();
   }
 
@@ -1352,6 +1370,7 @@
   }
 
   function init() {
+    ensureBackButton();
     if (isTeazeRoute()) {
       initTeaze();
       return;
@@ -1371,6 +1390,7 @@
   }
 
   if (typeof window !== 'undefined') {
+    setupGlobalBackButton();
     setupTeazeClickDelegation();
     window.addEventListener('popstate', function() {
       const path = getPath();
@@ -1383,11 +1403,14 @@
           }
         } catch (_) {}
         showTeazeScreen();
+        ensureBackButton();
         return;
       }
       init();
+      ensureBackButton();
     });
   }
 
   init();
+  ensureBackButton();
 })();

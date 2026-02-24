@@ -497,18 +497,18 @@ body {
   cursor: pointer;
 }
 
-/* Teaze back-to-home: fixed top-left, always visible, safe-area aware */
-.teaze-back-home-bar {
+/* Reusable BackButton: fixed top-left on non-home routes. Safe-area, high z-index. */
+.app-back-bar {
   position: fixed;
   top: max(12px, env(safe-area-inset-top));
-  left: 12px;
+  left: max(12px, env(safe-area-inset-left));
   z-index: 9999;
   pointer-events: auto;
   display: flex;
   align-items: center;
 }
 
-.teaze-back-home-btn {
+.app-back-btn {
   min-width: 44px;
   min-height: 44px;
   padding: 0;
@@ -527,7 +527,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-.teaze-back-home-btn:hover {
+.app-back-btn:hover {
   color: rgba(255, 255, 255, 0.95);
 }
 
