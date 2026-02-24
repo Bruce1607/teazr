@@ -1,5 +1,5 @@
 # Cloudflare Pages build config
-# Ensures build output dir matches npm run build output (where _redirects lives)
+# Build command + output dir must both be set so Pages runs build (not skipped)
 name = "teazr"
-pages_build_output_dir = "dist/public"
-pages_build_command = "npm ci && npm run build"
+pages_build_output_dir = "./dist/public"
+pages_build_command = "npm install && npm run build"
