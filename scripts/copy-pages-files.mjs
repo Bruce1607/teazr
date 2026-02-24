@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * Copies static assets and Cloudflare Pages config (_redirects, _headers)
- * into the build output directory. Required for SPA fallback routing.
+ * Copies static assets and Cloudflare Pages config (_headers, _routes.json)
+ * into the build output directory. SPA fallback is handled via Pages Functions
+ * (functions/[[path]].js), not _redirects.
  *
  * Usage: node scripts/copy-pages-files.mjs
  * Env:   CLOUDFLARE_PAGES_OUTPUT_DIR (default: dist/public)
  */
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -83,19 +84,13 @@ function main() {
 
   console.log(`[copy-pages] Done. Copied ${copied.length} files to ${OUTPUT_DIR}/`);
 
-  // Postbuild verification: _redirects MUST be in output root for Cloudflare Pages SPA routing
-  const redirectsDest = join(outPath, '_redirects');
-  if (!copied.includes('_redirects')) {
-    console.error('[copy-pages] ERROR: _redirects was NOT copied. SPA routing will fail.');
+  // SPA routing: _routes.json + Pages Function (functions/[[path]].js), not _redirects
+  const routesDest = join(outPath, '_routes.json');
+  if (!existsSync(routesDest)) {
+    console.error('[copy-pages] ERROR: _routes.json was NOT copied. SPA routing will fail.');
     process.exit(1);
   }
-  const rule = readFileSync(redirectsDest, 'utf8').trim();
-  console.log('[copy-pages] _redirects in output:', redirectsDest);
-  console.log('[copy-pages] _redirects rule:', rule);
-  if (rule !== '/* /index.html 200') {
-    console.error('[copy-pages] ERROR: _redirects must contain exactly: /* /index.html 200');
-    process.exit(1);
-  }
+  console.log('[copy-pages] _routes.json in output:', routesDest);
 }
 
 main();

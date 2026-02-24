@@ -1,1 +1,16 @@
-{"version":1,"include":["/api/*"],"exclude":[]}
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/index.html",
+    "/teaze.html",
+    "/app.js",
+    "/styles.css",
+    "/teaze-messages.js",
+    "/deploy-ping.txt",
+    "/assets/*",
+    "/favicon.ico",
+    "/og.jpg",
+    "/og-teaze.jpg"
+  ]
+}
