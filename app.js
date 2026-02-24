@@ -538,9 +538,7 @@
 
   function handleTeazeBackToHome() {
     try {
-      var fromHome = sessionStorage.getItem('teazr_from_home') === '1';
-      if (fromHome && window.history && window.history.length > 1) {
-        sessionStorage.removeItem('teazr_from_home');
+      if (window.history && window.history.length > 1) {
         window.history.back();
       } else {
         navigateHome();
