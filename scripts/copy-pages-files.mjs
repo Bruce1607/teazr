@@ -18,8 +18,8 @@ const ROOT = join(__dirname, '..');
 const OUTPUT_DIR = process.env.CLOUDFLARE_PAGES_OUTPUT_DIR || 'dist/public';
 const outPath = join(ROOT, OUTPUT_DIR);
 
-// Pages config files - MUST be in output root for redirects to work
-const PAGES_FILES = ['_redirects', '_headers', '_routes.json'];
+// Pages config files - MUST be in output root for routing
+const PAGES_FILES = ['_headers', '_routes.json'];
 
 // Static assets to copy
 const STATIC_FILES = [
