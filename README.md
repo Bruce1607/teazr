@@ -30,3 +30,4 @@ node test-teaze.js
 ```
 
 Checks: min 35 per bucket, no banned phrases, anti-repeat algorithm.
+
