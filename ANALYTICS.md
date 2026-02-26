@@ -8,7 +8,13 @@ This project tracks a minimal set of product events:
 - `quiz_started`
 - `quiz_completed`
 
-Client events are posted to `POST /api/event`.
+Client events are posted to:
+
+- `POST https://teazr.app/api/event`
+
+Expected response status:
+
+- `204`
 
 ## Payload shape
 
@@ -52,82 +58,30 @@ If `env.AE` is missing or the write throws, the function logs the error and stil
 
 ## Manual test instructions
 
-1. Open browser DevTools:
-   - **Network** tab (filter: `event`)
-   - **Console** (server logs in Pages environment)
-2. Load `/teaze`:
-   - expect `POST /api/event` with `event: "teaz_opened"`
-3. Click any **COPY** button:
-   - expect `event: "copy_clicked"`
-4. Click **MORE ↻**:
-   - expect `event: "more_options_clicked"`
-5. Start quiz from home:
-   - expect `event: "quiz_started"`
-6. Complete all 6 quiz questions:
-   - expect `event: "quiz_completed"`
-7. Verify `session_id` and `anon_id` are present in posted payloads.
-8. Verify server logs only show allowlisted events.
+1. Open browser DevTools on `https://teazr.app`.
+2. Go to **Network** tab and filter by `/api/event`.
+3. Open `/teaze`:
+   - confirm a request to `POST /api/event`
+   - confirm response status is `204`
+   - confirm payload includes `event`, `path`, and optional `props`
+4. Click any **COPY** button:
+   - confirm `event: "copy_clicked"` and status `204`
+5. Click **MORE ↻**:
+   - confirm `event: "more_options_clicked"` and status `204`
+6. Start and complete the quiz:
+   - confirm `quiz_started` and `quiz_completed` are sent
+7. Payload safety check:
+   - no message text or other PII should be sent
 
-## How to query Analytics Engine
+## Verify Analytics Engine is receiving events
 
 Dataset name: `teazr_events` (binding: `AE`).
 
-In Cloudflare Dashboard:
-
-1. Open **Analytics Engine**.
-2. Open dataset **teazr_events**.
-3. Run SQL queries using mapped columns:
-   - `blob1 = event`
-   - `blob2 = path`
-   - `blob3 = tab`
-   - `blob4 = bucketKey`
-   - `double1 = event_count` (always `1`)
-   - `index1 = anon_id`
-   - `index2 = session_id`
-
-### Example query: events per day by event name
-
-```sql
-SELECT
-  DATE_TRUNC('day', timestamp) AS day,
-  blob1 AS event_name,
-  SUM(double1) AS events
-FROM teazr_events
-WHERE timestamp >= NOW() - INTERVAL '30' DAY
-GROUP BY 1, 2
-ORDER BY 1 ASC, 2 ASC;
-```
-
-### Example query: teaz_opened per day
-
-```sql
-SELECT
-  DATE_TRUNC('day', timestamp) AS day,
-  SUM(double1) AS teaz_opened
-FROM teazr_events
-WHERE blob1 = 'teaz_opened'
-  AND timestamp >= NOW() - INTERVAL '30' DAY
-GROUP BY 1
-ORDER BY 1 ASC;
-```
-
-### Example query: copy rate (copy_clicked / teaz_opened)
-
-```sql
-WITH daily AS (
-  SELECT
-    DATE_TRUNC('day', timestamp) AS day,
-    SUM(CASE WHEN blob1 = 'copy_clicked' THEN double1 ELSE 0 END) AS copies,
-    SUM(CASE WHEN blob1 = 'teaz_opened' THEN double1 ELSE 0 END) AS opens
-  FROM teazr_events
-  WHERE timestamp >= NOW() - INTERVAL '30' DAY
-  GROUP BY 1
-)
-SELECT
-  day,
-  copies,
-  opens,
-  CASE WHEN opens = 0 THEN 0 ELSE copies / opens END AS copy_rate
-FROM daily
-ORDER BY day ASC;
-```
+1. In Cloudflare Pages, wait for the latest deployment to become **Successful**.
+2. Generate fresh events on production:
+   - open `https://teazr.app/teaze`
+   - click **COPY** at least 2-3 times
+3. In Cloudflare Dashboard, open **Analytics Engine** and select dataset `teazr_events`.
+4. Confirm new datapoints appear for recent timestamps:
+   - event names should include `teaz_opened` and `copy_clicked`
+5. If data is not immediate, wait a short time and refresh the dataset view.
