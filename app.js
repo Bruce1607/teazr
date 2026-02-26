@@ -190,13 +190,16 @@
 
   /** Lean analytics: allowlist + anon/session IDs only. */
   const ANALYTICS_ALLOWED_EVENTS = {
+    home_opened: true,
+    send_teaz_clicked: true,
+    quiz_start_clicked: true,
     teaz_opened: true,
     copy_clicked: true,
     more_options_clicked: true,
     quiz_started: true,
     quiz_completed: true
   };
-  const ANALYTICS_PROPS_KEYS = ['category', 'moment', 'style', 'situation', 'index', 'version', 'seedPresent', 'tab', 'bucketKey', 'saved'];
+  const ANALYTICS_PROPS_KEYS = ['category', 'moment', 'style', 'situation', 'index', 'version', 'seedPresent', 'tab', 'bucketKey', 'saved', 'from', 'to'];
   const ANALYTICS_ANON_ID_KEY = 'teazr_anon_id';
   let analyticsSessionId = '';
   let analyticsAnonId = '';
@@ -1097,6 +1100,7 @@
   }
 
   function navigateToTeaze() {
+    sendEvent('send_teaz_clicked', { from: getPath(), to: '/teaze' });
     var url;
     if (getPath() === '/teaze') {
       url = getTeazeBaseUrl();
@@ -1324,7 +1328,7 @@
   function start() {
     step = 0;
     answers = [];
-    sendEvent('quiz_started', { version: QUIZ_VERSION });
+    sendEvent('quiz_start_clicked', { from: getPath(), to: '/quiz' });
     showQuestion();
   }
 
@@ -1382,6 +1386,7 @@
       initTeaze();
       return;
     }
+    sendEvent('home_opened');
     const seedData = parseSeedParam();
     if (seedData && isValidSeedData(seedData)) {
       isShareEntry = true;

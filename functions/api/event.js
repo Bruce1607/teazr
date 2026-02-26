@@ -1,4 +1,7 @@
 const ALLOWED_EVENTS = new Set([
+  'home_opened',
+  'send_teaz_clicked',
+  'quiz_start_clicked',
   'teaz_opened',
   'copy_clicked',
   'more_options_clicked',

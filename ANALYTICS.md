@@ -2,10 +2,12 @@
 
 This project tracks a minimal set of product events:
 
+- `home_opened`
+- `send_teaz_clicked`
+- `quiz_start_clicked`
 - `teaz_opened`
 - `copy_clicked`
 - `more_options_clicked`
-- `quiz_started`
 - `quiz_completed`
 
 Client events are posted to:
@@ -56,21 +58,21 @@ Each accepted event writes:
 
 If `env.AE` is missing or the write throws, the function logs the error and still returns `204`.
 
-## Manual test instructions
+## 60-second QA checklist
 
-1. Open browser DevTools on `https://teazr.app`.
-2. Go to **Network** tab and filter by `/api/event`.
-3. Open `/teaze`:
-   - confirm a request to `POST /api/event`
-   - confirm response status is `204`
-   - confirm payload includes `event`, `path`, and optional `props`
-4. Click any **COPY** button:
-   - confirm `event: "copy_clicked"` and status `204`
-5. Click **MORE ↻**:
-   - confirm `event: "more_options_clicked"` and status `204`
-6. Start and complete the quiz:
-   - confirm `quiz_started` and `quiz_completed` are sent
-7. Payload safety check:
+1. Open `https://teazr.app/` in an incognito window.
+2. Open DevTools -> **Network** and filter by `event`.
+3. Confirm `POST https://teazr.app/api/event` requests return `204`.
+4. Click **SEND A TEAZ**:
+   - confirm an event with `event: "send_teaz_clicked"` returns `204`
+5. Click **COPY** on any suggestion:
+   - confirm `event: "copy_clicked"` still returns `204`
+6. Open `https://teazr.app/teaze` directly:
+   - confirm it redirects to `https://teazr.app/`
+7. Open `https://<project>.pages.dev` directly:
+   - confirm it redirects to `https://teazr.app/`
+8. Payload safety check:
+   - payload should include `event`, `path`, optional `props`
    - no message text or other PII should be sent
 
 ## Verify Analytics Engine is receiving events
@@ -79,9 +81,9 @@ Dataset name: `teazr_events` (binding: `AE`).
 
 1. In Cloudflare Pages, wait for the latest deployment to become **Successful**.
 2. Generate fresh events on production:
-   - open `https://teazr.app/teaze`
-   - click **COPY** at least 2-3 times
+   - open `https://teazr.app/`
+   - click **SEND A TEAZ** and then **COPY** at least 2-3 times
 3. In Cloudflare Dashboard, open **Analytics Engine** and select dataset `teazr_events`.
 4. Confirm new datapoints appear for recent timestamps:
-   - event names should include `teaz_opened` and `copy_clicked`
+   - event names should include `home_opened`, `send_teaz_clicked`, `teaz_opened`, and `copy_clicked`
 5. If data is not immediate, wait a short time and refresh the dataset view.
