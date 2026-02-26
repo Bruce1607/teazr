@@ -188,8 +188,50 @@
     }
   }
 
-  /** Whitelist: only these keys are sent. No message text, names, emails, identifiers. */
+  /** Lean analytics: allowlist + anon/session IDs only. */
+  const ANALYTICS_ALLOWED_EVENTS = {
+    teaz_opened: true,
+    copy_clicked: true,
+    more_options_clicked: true,
+    quiz_started: true,
+    quiz_completed: true
+  };
   const ANALYTICS_PROPS_KEYS = ['category', 'moment', 'style', 'situation', 'index', 'version', 'seedPresent', 'tab', 'bucketKey', 'saved'];
+  const ANALYTICS_ANON_ID_KEY = 'teazr_anon_id';
+  let analyticsSessionId = '';
+  let analyticsAnonId = '';
+  let analyticsReady = false;
+
+  function createAnalyticsId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return (
+      Date.now().toString(36) + '-' +
+      Math.random().toString(36).slice(2, 10)
+    );
+  }
+
+  function initAnalytics() {
+    if (analyticsReady) {
+      return { session_id: analyticsSessionId, anon_id: analyticsAnonId };
+    }
+
+    analyticsSessionId = createAnalyticsId();
+    analyticsAnonId = '';
+    try {
+      const existing = localStorage.getItem(ANALYTICS_ANON_ID_KEY);
+      if (existing && existing.length > 0) {
+        analyticsAnonId = existing;
+      } else {
+        analyticsAnonId = createAnalyticsId();
+        localStorage.setItem(ANALYTICS_ANON_ID_KEY, analyticsAnonId);
+      }
+    } catch (_) {
+      analyticsAnonId = createAnalyticsId();
+    }
+
+    analyticsReady = true;
+    return { session_id: analyticsSessionId, anon_id: analyticsAnonId };
+  }
 
   function sanitizeAnalyticsProps(props) {
     if (!props || typeof props !== 'object') return {};
@@ -206,24 +248,27 @@
 
   function sendEvent(eventName, props) {
     if (typeof window === 'undefined') return;
+    if (!Object.prototype.hasOwnProperty.call(ANALYTICS_ALLOWED_EVENTS, eventName)) return;
+
+    const ids = initAnalytics();
     const safeProps = sanitizeAnalyticsProps(props || {});
     const payload = {
       event: eventName,
       ts: Date.now(),
       path: getPath(),
-      v: APP_VERSION,
-      props: safeProps
+      session_id: ids.session_id,
+      anon_id: ids.anon_id,
+      v: APP_VERSION
     };
+    if (Object.keys(safeProps).length > 0) payload.props = safeProps;
+
     const body = JSON.stringify(payload);
     const url = '/api/event';
-
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || /\.(dev|local)(:\d+)?$/.test(location.hostname)) {
       console.log('[TEAZR analytics]', payload);
     }
 
-    if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) {
-      return;
-    }
+    if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) return;
     fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -787,7 +832,6 @@
       teazeStyle = 'CLASSY';
     }
     teazeCurrentIds = [];
-    sendTeazeEvent('category_changed', { category: c });
     showTeazeScreen();
   }
 
@@ -796,7 +840,6 @@
     teazeMoment = m;
     teazeSituation = (m === 'BOUNDARY') ? 'unwanted_pic' : 'ANY';
     teazeCurrentIds = [];
-    sendTeazeEvent('moment_changed', { moment: m });
     showTeazeScreen();
   }
 
@@ -804,7 +847,6 @@
     if (s === teazeStyle) return;
     teazeStyle = s;
     teazeCurrentIds = [];
-    sendTeazeEvent('style_changed', { style: s });
     showTeazeScreen();
   }
 
@@ -812,7 +854,6 @@
     if (sit === teazeSituation) return;
     teazeSituation = sit;
     teazeCurrentIds = [];
-    sendTeazeEvent('situation_changed', { situation: sit });
     showTeazeScreen();
   }
 
@@ -833,8 +874,6 @@
       : text;
     const nowSaved = toggleSaved(decoded);
     showToast(nowSaved ? 'Saved' : 'Removed');
-    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
-    sendTeazeEvent('save_toggled', { saved: nowSaved, bucketKey: bucketKey });
     if (teazeActiveTab === 'SAVED' || teazeActiveTab === 'TODAY' || teazeActiveTab === 'COPIED') showTeazeScreen();
   }
 
@@ -939,7 +978,6 @@
         if (tab && tab !== teazeActiveTab) {
           teazeActiveTab = tab;
           try { localStorage.setItem(TEAZE_TAB_KEY, tab); } catch (_) {}
-          sendTeazeEvent('tab_changed', { tab: tab });
           showTeazeScreen();
         }
         return;
@@ -1338,6 +1376,7 @@
   }
 
   function init() {
+    initAnalytics();
     ensureBackButton();
     if (isTeazeRoute()) {
       initTeaze();
