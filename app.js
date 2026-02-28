@@ -188,49 +188,82 @@
     }
   }
 
-  /** Lean analytics: allowlist + anon/session IDs only. */
+  /** Lean analytics: allowlisted events + source attribution, no PII / no tracking IDs. */
   const ANALYTICS_ALLOWED_EVENTS = {
-    teaz_opened: true,
+    teaze_opened: true,
     copy_clicked: true,
-    more_options_clicked: true,
+    share_clicked: true,
     quiz_started: true,
     quiz_completed: true
   };
-  const ANALYTICS_PROPS_KEYS = ['category', 'moment', 'style', 'situation', 'index', 'version', 'seedPresent', 'tab', 'bucketKey', 'saved'];
-  const ANALYTICS_ANON_ID_KEY = 'teazr_anon_id';
-  let analyticsSessionId = '';
-  let analyticsAnonId = '';
-  let analyticsReady = false;
+  const ANALYTICS_PROPS_KEYS = ['context', 'category', 'moment', 'style', 'quiz_version'];
 
-  function createAnalyticsId() {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-    return (
-      Date.now().toString(36) + '-' +
-      Math.random().toString(36).slice(2, 10)
-    );
+  let _sourceCache = null;
+  function detectSource() {
+    if (_sourceCache) return _sourceCache;
+    let source = 'unknown';
+    let ref_domain = '';
+    let in_app = false;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const paramVal = (params.get('utm_source') || params.get('src') || '').toLowerCase();
+      if (paramVal === 'tiktok' || paramVal === 'tt') source = 'tiktok';
+      else if (paramVal === 'instagram' || paramVal === 'ig') source = 'instagram';
+      else if (paramVal === 'facebook' || paramVal === 'fb') source = 'facebook';
+    } catch (_) {}
+    try {
+      if (document.referrer) {
+        ref_domain = new URL(document.referrer).hostname || '';
+        if (source === 'unknown') {
+          if (ref_domain.indexOf('tiktok.com') !== -1) source = 'tiktok';
+          else if (ref_domain.indexOf('instagram.com') !== -1) source = 'instagram';
+          else if (ref_domain.indexOf('facebook.com') !== -1) source = 'facebook';
+        }
+      }
+    } catch (_) {}
+    try {
+      const ua = navigator.userAgent || '';
+      if (/TikTok/i.test(ua)) { in_app = true; if (source === 'unknown') source = 'tiktok'; }
+      else if (/Instagram/i.test(ua)) { in_app = true; if (source === 'unknown') source = 'instagram'; }
+      else if (/FBAN|FBAV/i.test(ua)) { in_app = true; if (source === 'unknown') source = 'facebook'; }
+    } catch (_) {}
+    if (source === 'unknown' && !ref_domain && !in_app) source = 'direct';
+    _sourceCache = { source: source, ref_domain: ref_domain, in_app: in_app };
+    return _sourceCache;
   }
 
-  function initAnalytics() {
-    if (analyticsReady) {
-      return { session_id: analyticsSessionId, anon_id: analyticsAnonId };
+  const qaEvents = [];
+  const QA_MAX_EVENTS = 20;
+  function qaLogEvent(payload) {
+    if (!isQaMode()) return;
+    qaEvents.push(payload);
+    if (qaEvents.length > QA_MAX_EVENTS) qaEvents.shift();
+    try { console.log('[TEAZR QA]', payload); } catch (_) {}
+    renderQaOverlay();
+  }
+  function renderQaOverlay() {
+    if (!isQaMode()) return;
+    let panel = document.getElementById('teazr-qa-overlay');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'teazr-qa-overlay';
+      panel.style.cssText = 'position:fixed;bottom:0;right:0;width:340px;max-height:260px;overflow-y:auto;background:rgba(0,0,0,0.92);color:#0f0;font:11px/1.4 monospace;padding:8px;z-index:99999;pointer-events:auto;border-top-left-radius:8px;';
+      document.body.appendChild(panel);
     }
-
-    analyticsSessionId = createAnalyticsId();
-    analyticsAnonId = '';
-    try {
-      const existing = localStorage.getItem(ANALYTICS_ANON_ID_KEY);
-      if (existing && existing.length > 0) {
-        analyticsAnonId = existing;
-      } else {
-        analyticsAnonId = createAnalyticsId();
-        localStorage.setItem(ANALYTICS_ANON_ID_KEY, analyticsAnonId);
+    let html = '<div style="color:#fff;font-weight:bold;margin-bottom:4px">QA Events (' + qaEvents.length + ')</div>';
+    for (let i = qaEvents.length - 1; i >= 0; i--) {
+      const e = qaEvents[i];
+      const time = new Date(e.ts).toLocaleTimeString();
+      html += '<div style="border-bottom:1px solid #333;padding:2px 0">';
+      html += '<span style="color:#ff0">' + time + '</span> ';
+      html += '<span style="color:#0ff">' + e.event + '</span>';
+      html += ' <span style="color:#aaa">src=' + e.source + (e.in_app ? ' in-app' : '') + '</span>';
+      if (e.props && Object.keys(e.props).length > 0) {
+        html += '<br><span style="color:#888">' + JSON.stringify(e.props) + '</span>';
       }
-    } catch (_) {
-      analyticsAnonId = createAnalyticsId();
+      html += '</div>';
     }
-
-    analyticsReady = true;
-    return { session_id: analyticsSessionId, anon_id: analyticsAnonId };
+    panel.innerHTML = html;
   }
 
   function sanitizeAnalyticsProps(props) {
@@ -249,32 +282,29 @@
   function sendEvent(eventName, props) {
     if (typeof window === 'undefined') return;
     if (!Object.prototype.hasOwnProperty.call(ANALYTICS_ALLOWED_EVENTS, eventName)) return;
-
-    const ids = initAnalytics();
-    const safeProps = sanitizeAnalyticsProps(props || {});
-    const payload = {
-      event: eventName,
-      ts: Date.now(),
-      path: getPath(),
-      session_id: ids.session_id,
-      anon_id: ids.anon_id,
-      v: APP_VERSION
-    };
-    if (Object.keys(safeProps).length > 0) payload.props = safeProps;
-
-    const body = JSON.stringify(payload);
-    const url = '/api/event';
-    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || /\.(dev|local)(:\d+)?$/.test(location.hostname)) {
-      console.log('[TEAZR analytics]', payload);
-    }
-
-    if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) return;
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-      keepalive: true
-    }).catch(function() {});
+    try {
+      const src = detectSource();
+      const safeProps = sanitizeAnalyticsProps(props || {});
+      const payload = {
+        event: eventName,
+        ts: Date.now(),
+        path: getPath(),
+        source: src.source,
+        ref_domain: src.ref_domain,
+        in_app: src.in_app
+      };
+      if (Object.keys(safeProps).length > 0) payload.props = safeProps;
+      qaLogEvent(payload);
+      const body = JSON.stringify(payload);
+      const url = '/api/event';
+      if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) return;
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body,
+        keepalive: true
+      }).catch(function() {});
+    } catch (_) {}
   }
 
   function sendTeazeEvent(eventName, props) {
@@ -863,7 +893,7 @@
     copyResultUrl(decoded).then(function() {
       addToRecentCopied(decoded);
       showToast('Copied');
-      sendTeazeEvent('copy_clicked', { tab: teazeActiveTab });
+      sendTeazeEvent('copy_clicked', { context: 'teaze_message', category: teazeCategory, moment: teazeMoment, style: teazeStyle });
     }).catch(function() { showToast('Could not copy'); });
   }
 
@@ -903,8 +933,7 @@
           btn.disabled = false;
         }, 1000);
       }
-      const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
-      sendTeazeEvent('copy_clicked', { tab: teazeActiveTab, bucketKey: bucketKey, index: index });
+      sendTeazeEvent('copy_clicked', { context: 'teaze_message', category: teazeCategory, moment: teazeMoment, style: teazeStyle });
     }).catch(function() { showToast('Could not copy'); });
   }
 
@@ -914,8 +943,6 @@
       btn.disabled = true;
       btn.textContent = 'REFRESHING…';
     }
-    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
-    sendTeazeEvent('more_options_clicked', { bucketKey: bucketKey });
     setTimeout(function() {
       showTeazeScreen();
     }, 280);
@@ -926,6 +953,7 @@
     const text = getTeazeShareText(url);
     const encoded = encodeURIComponent(text);
     window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
+    sendEvent('share_clicked', { context: 'whatsapp' });
   }
 
   function copyTeazeLink() {
@@ -942,6 +970,7 @@
           btn.disabled = false;
         }, 1000);
       }
+      sendEvent('share_clicked', { context: 'copy_link' });
     }).catch(function() { showToast('Could not copy'); });
   }
 
@@ -1091,7 +1120,7 @@
         teazeStyle = 'CLASSY';
       }
     }
-    sendTeazeEvent('teaz_opened', { seedPresent: !!seed });
+    sendTeazeEvent('teaze_opened', { category: teazeCategory, moment: teazeMoment, style: teazeStyle });
     ensureBackButton();
     showTeazeScreen();
   }
@@ -1284,7 +1313,7 @@
   function showResult() {
     const data = computeResult();
     setCooldown();
-    sendEvent('quiz_completed', { version: QUIZ_VERSION });
+    sendEvent('quiz_completed', { quiz_version: QUIZ_VERSION });
     renderResultScreen(data, true);
     const shareUrl = makeShareUrl(data);
     if (window.history && window.history.replaceState) {
@@ -1301,6 +1330,7 @@
     copyResultUrl(url).then(() => {
       showToast('Link copied');
       emitAnalytics('copy_link_clicked');
+      sendEvent('copy_clicked', { context: 'quiz_result' });
     }).catch(() => showToast('Could not copy'));
   }
 
@@ -1317,6 +1347,7 @@
     const encoded = encodeURIComponent(shareText);
     window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
     emitAnalytics('share_whatsapp_clicked');
+    sendEvent('share_clicked', { context: 'whatsapp' });
   }
 
   const QUIZ_VERSION = '1';
@@ -1324,7 +1355,7 @@
   function start() {
     step = 0;
     answers = [];
-    sendEvent('quiz_started', { version: QUIZ_VERSION });
+    sendEvent('quiz_started', { quiz_version: QUIZ_VERSION });
     showQuestion();
   }
 
@@ -1376,7 +1407,7 @@
   }
 
   function init() {
-    initAnalytics();
+    detectSource();
     ensureBackButton();
     if (isTeazeRoute()) {
       initTeaze();

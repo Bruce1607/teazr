@@ -1,85 +1,126 @@
 const ALLOWED_EVENTS = new Set([
-  'teaz_opened',
+  'teaze_opened',
   'copy_clicked',
-  'more_options_clicked',
+  'share_clicked',
   'quiz_started',
   'quiz_completed'
 ]);
 
-const MAX_BODY_BYTES = 16 * 1024;
-const MAX_EVENT_CHARS = 64;
-const MAX_PATH_CHARS = 256;
-const MAX_ID_CHARS = 128;
-const MAX_PROPS_JSON_CHARS = 4 * 1024;
-const MAX_TAB_CHARS = 64;
-const MAX_BUCKET_KEY_CHARS = 256;
+const MAX_BODY_BYTES = 2048;
+const MAX_STR = 256;
+const RATE_WINDOW_MS = 60000;
+const RATE_MAX = 60;
+const CLEANUP_INTERVAL_MS = 300000;
 
-function capString(value, maxChars) {
-  if (typeof value !== 'string') return '';
-  return value.slice(0, maxChars);
+const rateMap = new Map();
+let lastCleanup = Date.now();
+
+function getClientIp(request) {
+  return (
+    request.headers.get('cf-connecting-ip') ||
+    request.headers.get('x-forwarded-for') ||
+    'unknown'
+  );
 }
 
-function normalizeProps(rawProps) {
-  if (!rawProps || typeof rawProps !== 'object' || Array.isArray(rawProps)) return {};
-  try {
-    const serialized = JSON.stringify(rawProps);
-    if (!serialized || serialized.length > MAX_PROPS_JSON_CHARS) return {};
-  } catch (_) {
-    return {};
+function isRateLimited(ip) {
+  const now = Date.now();
+  if (now - lastCleanup > CLEANUP_INTERVAL_MS) {
+    lastCleanup = now;
+    for (const [key, entry] of rateMap) {
+      if (now - entry.start > RATE_WINDOW_MS) rateMap.delete(key);
+    }
   }
-  return rawProps;
+  const entry = rateMap.get(ip);
+  if (!entry || now - entry.start > RATE_WINDOW_MS) {
+    rateMap.set(ip, { start: now, count: 1 });
+    return false;
+  }
+  entry.count++;
+  return entry.count > RATE_MAX;
 }
 
-export async function onRequestPost(context) {
+function cap(value, max) {
+  if (typeof value !== 'string') return '';
+  return value.slice(0, max);
+}
+
+const ALLOWED_PROP_KEYS = ['context', 'category', 'moment', 'style', 'quiz_version'];
+
+function sanitizeProps(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out = {};
+  for (const k of ALLOWED_PROP_KEYS) {
+    if (raw[k] == null) continue;
+    const v = raw[k];
+    if (typeof v === 'number' || typeof v === 'boolean') out[k] = v;
+    else if (typeof v === 'string') out[k] = v.slice(0, 64);
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+export async function onRequest(context) {
+  if (context.request.method !== 'POST') {
+    return new Response(null, { status: 405 });
+  }
+
+  const ip = getClientIp(context.request);
+  if (isRateLimited(ip)) {
+    return new Response(null, { status: 429 });
+  }
+
   let rawBody = '';
   try {
     rawBody = await context.request.text();
   } catch (_) {
-    return new Response(null, { status: 204 });
+    return new Response(null, { status: 400 });
   }
 
-  if (!rawBody || rawBody.length > MAX_BODY_BYTES) {
-    return new Response(null, { status: 204 });
+  if (!rawBody) {
+    return new Response(null, { status: 400 });
+  }
+  if (rawBody.length > MAX_BODY_BYTES) {
+    return new Response(null, { status: 413 });
   }
 
-  let payload = null;
+  let payload;
   try {
     payload = JSON.parse(rawBody);
   } catch (_) {
-    return new Response(null, { status: 204 });
+    return new Response(null, { status: 400 });
   }
 
-  const eventName = capString(payload && payload.event, MAX_EVENT_CHARS);
-
-  if (!ALLOWED_EVENTS.has(eventName)) {
-    return new Response(null, { status: 204 });
+  if (!payload || typeof payload.event !== 'string' || !ALLOWED_EVENTS.has(payload.event)) {
+    return new Response(null, { status: 400 });
   }
 
-  const safeProps = normalizeProps(payload && payload.props);
-  const eventPayload = {
-    event: eventName,
+  const event = {
+    event: payload.event,
     ts: typeof payload.ts === 'number' ? payload.ts : Date.now(),
-    path: capString(typeof payload.path === 'string' ? payload.path : '/', MAX_PATH_CHARS),
-    session_id: capString(payload && payload.session_id, MAX_ID_CHARS),
-    anon_id: capString(payload && payload.anon_id, MAX_ID_CHARS),
-    props: safeProps
+    path: cap(payload.path, MAX_STR),
+    source: cap(payload.source, 32),
+    ref_domain: cap(payload.ref_domain, MAX_STR),
+    in_app: payload.in_app === true
   };
+  const props = sanitizeProps(payload.props);
+  if (props) event.props = props;
 
-  console.log(JSON.stringify(eventPayload));
+  console.log(JSON.stringify(event));
 
   try {
-    const aeBinding = context && context.env ? context.env.AE : null;
-    if (!aeBinding || typeof aeBinding.writeDataPoint !== 'function') {
-      console.error('[analytics] AE binding missing');
-    } else {
-      const tab = capString(safeProps && safeProps.tab, MAX_TAB_CHARS);
-      const bucketKey = capString(safeProps && safeProps.bucketKey, MAX_BUCKET_KEY_CHARS);
-      await Promise.resolve(aeBinding.writeDataPoint({
-        blobs: [eventName, eventPayload.path || '', tab || '', bucketKey || ''],
-        doubles: [1],
-        indexes: [eventPayload.anon_id || '', eventPayload.session_id || '']
+    const ae = context.env && context.env.AE;
+    if (ae && typeof ae.writeDataPoint === 'function') {
+      await Promise.resolve(ae.writeDataPoint({
+        blobs: [
+          event.event,
+          event.path || '',
+          event.source || '',
+          event.ref_domain || '',
+          props ? JSON.stringify(props) : ''
+        ],
+        doubles: [1, event.in_app ? 1 : 0],
+        indexes: [event.source || '']
       }));
-      console.log('[analytics] AE write invoked', eventName);
     }
   } catch (err) {
     console.error('[analytics] AE write failed', err);
