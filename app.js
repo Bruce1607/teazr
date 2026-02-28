@@ -31,13 +31,15 @@
   let teazeActiveTab = 'TODAY';
 
   const QUESTIONS = [
-    { q: 'When you see someone you\'re attracted to, you typically…', a: ['Make direct eye contact', 'Glance and look away', 'Stay in your lane'] },
-    { q: 'Your approach to getting attention is…', a: ['Bold and confident', 'Subtle hints', 'Hope they notice'] },
-    { q: 'In a group, you tend to…', a: ['Own the room', 'Warm up gradually', 'Blend in'] },
-    { q: 'When flirting, you prefer…', a: ['Playful teasing', 'Sweet compliments', 'Low-key vibes'] },
-    { q: 'Your texting style is…', a: ['Quick wit, quick reply', 'Thoughtful, not desperate', 'When I feel like it'] },
-    { q: 'When someone gives you a compliment…', a: ['Own it and volley back', 'Thank them warmly', 'Deflect or downplay'] }
+    { q: 'YOU SEE THEM. WHAT DO YOU DO?', a: ['I TEXT FIRST.', 'I LET THEM NOTICE ME.', 'I SAY SOMETHING BOLD.'] },
+    { q: 'YOUR FIRST MESSAGE STYLE?', a: ['PLAYFUL + QUICK.', 'CALM + MINIMAL.', 'CHAOS ON PURPOSE.'] },
+    { q: 'THEY REPLY LATE\u2026', a: ['I KEEP IT LIGHT.', 'I GO QUIET TOO.', 'I CALL IT OUT (SOFTLY).'] },
+    { q: 'YOUR MAIN WEAPON?', a: ['HUMOR.', 'SILENCE + TIMING.', 'DIRECTNESS.'] },
+    { q: 'YOUR VIBE IN ONE WORD?', a: ['WARM.', 'UNREADABLE.', 'INTENSE.'] },
+    { q: 'IF IT\u2019S NOT IT\u2026', a: ['KIND CLOSE.', 'CLEAN EXIT.', 'I SAY IT STRAIGHT.'] }
   ];
+
+  const TAP_REACTIONS = ['W.', 'NOTED.', 'SAY LESS.', 'BOLD.', 'VALID.', 'DANGEROUS.', 'CLEAN.', 'OKAYYY.', 'RESPECT.', 'IYKYK.'];
 
   function labelForScore(score, labels) {
     if (score <= 20) return labels[0];
@@ -53,29 +55,39 @@
 
   const ONE_LINERS = {
     ruleA: [
-      'This could be legendary… or chaotic.',
-      'You\'re playing with fire. Respect.',
-      'One message away from a plot twist.'
+      'Respectfully\u2026 you\'re dangerous.',
+      'Chaos, but make it cute.',
+      'You\'re the plot twist.',
+      'Bold energy. No seatbelt.',
+      'They\'re not ready for you.'
     ],
     ruleB: [
-      'Silent but deadly. Interesting.',
-      'Mysterious energy. They\'ll overthink this.',
-      'Low flirt, high mystery — dangerous combo.'
+      'Unreadable. That\'s the flex.',
+      'Quiet vibe. Loud impact.',
+      'You move like a secret.',
+      'You\'re the cliffhanger.',
+      'No context. Still iconic.'
     ],
     ruleC: [
-      'Smooth. Confident. Very sendable.',
-      'Big charm, low risk — go for it.',
-      'You\'re basically a green light.'
+      'Clean rizz. Safe hands.',
+      'Flirty but respectful\u2014W.',
+      'Warm energy. Zero chaos.',
+      'High charm, low stress.',
+      'Green flag with rizz.'
     ],
     ruleD: [
-      'Balanced vibes. Play it cool.',
-      'You\'re in the sweet spot.',
-      'Nothing wild… yet.'
+      'Good vibes, no cringe.',
+      'Soft confidence wins.',
+      'Chill rizz. Real energy.',
+      'Low drama. High standard.',
+      'Balanced. Dangerous in silence.'
     ],
     default: [
-      'Chaos potential detected.',
-      'This is a vibe. Trust it.',
-      'Proceed with playful confidence.'
+      'Main character, low volume.',
+      'Energy: controlled.',
+      'You don\'t chase. You choose.',
+      'You\'re the reason people overthink.',
+      'Soft vibe, strong presence.'
     ]
   };
 
@@ -317,9 +329,27 @@
   }
 
   function formatCooldown(ms) {
-    const h = Math.floor(ms / 3600000);
-    const m = Math.floor((ms % 3600000) / 60000);
-    return h ? `${h}h ${m}m` : `${m}m`;
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  let _cooldownInterval = null;
+  function clearCooldownTimer() {
+    if (_cooldownInterval) { clearInterval(_cooldownInterval); _cooldownInterval = null; }
+  }
+  function startCooldownTimer(onTick) {
+    clearCooldownTimer();
+    _cooldownInterval = setInterval(function() {
+      const remaining = getCooldownRemaining();
+      if (remaining <= 0) {
+        clearCooldownTimer();
+        onTick(0);
+      } else {
+        onTick(remaining);
+      }
+    }, 1000);
   }
 
   /** Banned phrases (case-insensitive). Runtime safety filter. */
@@ -1000,22 +1030,37 @@
   }
 
   function showStart() {
+    clearCooldownTimer();
     if (!isShareEntry) challengeBannerData = null;
     const remaining = isShareEntry ? 0 : getCooldownRemaining();
-    const cooldownHtml = remaining > 0 ? `<p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${formatCooldown(remaining)}.</p>` : '';
-    const quizBtn = (isShareEntry || remaining <= 0) ? `<button type="button" class="btn-home-action" onclick="TEAZR.start()">FLIRT ENERGY CHECK</button>` : '';
+    const disabled = remaining > 0;
+    const cdLabel = disabled ? 'Try again in ' + formatCooldown(remaining) : '';
+
     render(`
       <div class="start-screen">
         <h1 class="start-title">TEAZR</h1>
         <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
         <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
-        ${cooldownHtml}
         <div class="home-actions">
-          ${quizBtn}
+          <button type="button" class="btn-home-action${disabled ? ' btn-disabled' : ''}" id="home-quiz-btn" onclick="TEAZR.start()"${disabled ? ' disabled' : ''}>FLIRT ENERGY CHECK</button>
+          ${disabled ? '<p class="home-cooldown-label" id="home-cooldown-label">' + cdLabel + '</p>' : ''}
           <a href="/teaze?v=2" class="btn-home-action" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
         </div>
       </div>
     `);
+
+    if (disabled) {
+      startCooldownTimer(function(ms) {
+        const btn = document.getElementById('home-quiz-btn');
+        const lbl = document.getElementById('home-cooldown-label');
+        if (ms <= 0) {
+          if (btn) { btn.disabled = false; btn.classList.remove('btn-disabled'); }
+          if (lbl) lbl.remove();
+        } else {
+          if (lbl) lbl.textContent = 'Try again in ' + formatCooldown(ms);
+        }
+      });
+    }
   }
 
   function showQuestion() {
@@ -1032,18 +1077,35 @@
         Someone got: ${challengeBannerData.flirtLabel} / ${challengeBannerData.mysteryLabel} / ${challengeBannerData.replyRiskLabel} — can you beat it?
       </div>
     ` : '';
+    const progressPct = ((step) / QUESTIONS.length) * 100;
     render(`
       ${banner}
+      <div class="quiz-header">
+        <p class="quiz-title">FLIRT ENERGY CHECK</p>
+        <p class="quiz-sub">NO CONTEXT. JUST VIBES.</p>
+      </div>
+      <div class="quiz-progress-bar"><div class="quiz-progress-fill" style="width:${progressPct}%"></div></div>
       <p class="quiz-counter">${step + 1} / 6</p>
       <p class="quiz-question">${q.q}</p>
       <div class="quiz-answers">${buttons}</div>
+      <div id="tap-reaction" class="tap-reaction"></div>
     `);
   }
 
   function answer(idx) {
     answers.push(idx);
     step++;
-    showQuestion();
+    const reaction = TAP_REACTIONS[Math.floor(Math.random() * TAP_REACTIONS.length)];
+    const el = document.getElementById('tap-reaction');
+    if (el) {
+      el.textContent = reaction;
+      el.classList.add('tap-reaction-visible');
+    }
+    const btns = document.querySelectorAll('.btn-answer');
+    btns.forEach(function(b) { b.disabled = true; });
+    setTimeout(function() {
+      showQuestion();
+    }, 200);
   }
 
   function computeResult() {
@@ -1077,6 +1139,7 @@
 
 
   function renderResultScreen(data, fromQuiz) {
+    clearCooldownTimer();
     const flirtLabel = labelForScore(data.flirt, FLIRT_LABELS);
     const mysteryLabel = labelForScore(data.mystery, MYSTERY_LABELS);
     const replyRiskLabel = labelForScore(data.replyRisk, REPLY_RISK_LABELS);
@@ -1084,6 +1147,10 @@
 
     lastShareUrl = makeShareUrl(data);
     lastResultData = { ...data, flirtLabel, mysteryLabel, replyRiskLabel, oneLiner };
+
+    const remaining = getCooldownRemaining();
+    const cdActive = remaining > 0;
+    const tryAgainLabel = cdActive ? 'TRY AGAIN (' + formatCooldown(remaining) + ')' : 'Try again';
 
     render(`
       <div class="result-container">
@@ -1100,13 +1167,28 @@
         </div>
         <p class="screenshot-title">NO CONTEXT.</p>
         <p class="screenshot-sub">Just vibes.</p>
+        <p class="result-gen-z-liner">${oneLiner}</p>
         <div class="result-actions">
           <button class="btn-primary" id="btn-whatsapp" onclick="TEAZR.shareWhatsApp()">Share on WhatsApp</button>
           <button class="btn-secondary" id="btn-copy" onclick="TEAZR.copyLink()">Copy link</button>
-          <button class="btn-tertiary" onclick="TEAZR.restart()">Try again</button>
+          <button class="btn-tertiary${cdActive ? ' btn-disabled' : ''}" id="btn-try-again" onclick="TEAZR.restart()"${cdActive ? ' disabled' : ''}>${tryAgainLabel}</button>
+          ${cdActive ? '<p class="result-cooldown-hint">Try again in 5 min</p>' : ''}
         </div>
       </div>
     `);
+
+    if (cdActive) {
+      startCooldownTimer(function(ms) {
+        const btn = document.getElementById('btn-try-again');
+        const hint = document.querySelector('.result-cooldown-hint');
+        if (ms <= 0) {
+          if (btn) { btn.disabled = false; btn.classList.remove('btn-disabled'); btn.textContent = 'Try again'; }
+          if (hint) hint.remove();
+        } else {
+          if (btn) btn.textContent = 'TRY AGAIN (' + formatCooldown(ms) + ')';
+        }
+      });
+    }
   }
 
   function showResult() {
