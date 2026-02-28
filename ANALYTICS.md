@@ -59,6 +59,16 @@ Detection priority: URL params (`utm_source` / `src`) → `document.referrer` ho
 - `doubles[1]` = in_app (1 or 0)
 - `indexes[0]` = source
 
+## Data storage
+
+Events are stored in **Cloudflare Analytics Engine** when the `AE` binding is configured. If `AE` is not bound, events are still logged as structured JSON to the Pages Function console (visible in Cloudflare Dashboard → Pages → Deployment → Functions logs).
+
+### Enabling Analytics Engine (if not already configured)
+
+1. In Cloudflare Dashboard, go to **Workers & Pages → your Pages project → Settings → Functions → Analytics Engine bindings**.
+2. Add a binding: variable name `AE`, dataset name `teazr_events`.
+3. Redeploy. The function will automatically detect the binding and start writing datapoints.
+
 ## QA mode
 
 Append `?qa=1` to any page URL to enable the QA overlay:
