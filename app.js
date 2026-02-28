@@ -722,12 +722,9 @@
       const escaped = m.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const saved = isSaved(m.text);
       return `
-        <div class="teaze-message-card" data-id="${m.id}">
+        <div class="teaze-message-card teaze-card-inline" data-id="${m.id}">
           <p class="teaze-message-text">${escaped}</p>
-          <div class="teaze-card-actions">
-            <button type="button" class="btn-teaze-copy" data-action="copy" data-id="${m.id}" data-index="${idx}">COPY</button>
-            <button type="button" class="btn-teaze-save ${saved ? 'saved' : ''}" data-action="save-toggle" data-id="${m.id}" aria-label="${saved ? 'Unsave' : 'Save'}">${saved ? 'SAVED' : 'SAVE'}</button>
-          </div>
+          <button type="button" class="btn-teaze-copy-inline" data-action="copy" data-id="${m.id}" data-index="${idx}">COPY</button>
         </div>
       `;
     }).join('');
@@ -1154,6 +1151,7 @@
 
     render(`
       <div class="result-container">
+        <button type="button" class="result-back-btn" onclick="TEAZR.navigateHome()" aria-label="Back to home">\u2190</button>
         <div class="screenshot-card">
           <h2 class="result-wordmark">TEAZR</h2>
           <div class="result-scores">

@@ -307,6 +307,24 @@ body {
   margin-bottom: 0.5rem;
 }
 
+/* Result back arrow */
+.result-back-btn {
+  align-self: flex-start;
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px 8px;
+  color: #fff;
+  opacity: 0.7;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-bottom: -0.5rem;
+}
+
+.result-back-btn:hover { opacity: 1; }
+
 /* Result screen */
 .result-container {
   display: flex;
@@ -760,6 +778,48 @@ body {
   border-radius: 12px;
   padding: 1.35rem 1.5rem;
   text-align: left;
+}
+
+.teaze-card-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.teaze-card-inline .teaze-message-text {
+  flex: 1;
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.btn-teaze-copy-inline {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  background: rgba(160, 55, 55, 0.4);
+  color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(180, 50, 50, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.btn-teaze-copy-inline:hover {
+  background: rgba(180, 50, 50, 0.55);
+  border-color: rgba(180, 50, 50, 0.5);
+}
+
+.btn-teaze-copy-inline:active {
+  transform: scale(0.96);
+}
+
+.btn-teaze-copy-inline.copied {
+  background: rgba(55, 120, 70, 0.4);
+  border-color: rgba(55, 120, 70, 0.4);
 }
 
 .teaze-message-text {
