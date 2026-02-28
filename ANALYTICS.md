@@ -69,6 +69,80 @@ Events are stored in **Cloudflare Analytics Engine** when the `AE` binding is co
 2. Add a binding: variable name `AE`, dataset name `teazr_events`.
 3. Redeploy. The function will automatically detect the binding and start writing datapoints.
 
+## Viewing data
+
+Events land in the Cloudflare Analytics Engine dataset **`teazr_events`**. There are two ways to query them.
+
+### Via Cloudflare Dashboard (SQL editor)
+
+1. Log in to **Cloudflare Dashboard**.
+2. Go to **Analytics & Logs → Analytics Engine**.
+3. Select the `teazr_events` dataset (or use the SQL editor tab directly).
+4. Run SQL queries against the dataset. Useful examples:
+
+**Total events by name (last 24 h):**
+```sql
+SELECT blob1 AS event, SUM(_sample_interval) AS count
+FROM teazr_events
+WHERE timestamp > NOW() - INTERVAL '24' HOUR
+GROUP BY blob1
+ORDER BY count DESC
+```
+
+**Quiz completions by source (last 7 days):**
+```sql
+SELECT blob3 AS source, SUM(_sample_interval) AS count
+FROM teazr_events
+WHERE blob1 = 'quiz_completed'
+  AND timestamp > NOW() - INTERVAL '7' DAY
+GROUP BY blob3
+ORDER BY count DESC
+```
+
+**TikTok vs Instagram events (last 24 h):**
+```sql
+SELECT blob1 AS event, blob3 AS source, SUM(_sample_interval) AS count
+FROM teazr_events
+WHERE blob3 IN ('tiktok', 'instagram')
+  AND timestamp > NOW() - INTERVAL '24' HOUR
+GROUP BY blob1, blob3
+ORDER BY count DESC
+```
+
+### Column reference
+
+| AE field | Maps to |
+|----------|---------|
+| `blob1` | event name (`teaze_opened`, `copy_clicked`, etc.) |
+| `blob2` | path (`/teaze`, `/`, etc.) |
+| `blob3` | source (`tiktok`, `instagram`, `direct`, etc.) |
+| `blob4` | ref_domain (hostname only) |
+| `blob5` | JSON props |
+| `double1` | 1 (count) |
+| `double2` | in_app (1 or 0) |
+| `index1` | source (same as blob3, used for indexed lookups) |
+
+### Via Workers Analytics Engine API
+
+You can also query programmatically using the [Analytics Engine SQL API](https://developers.cloudflare.com/analytics/analytics-engine/sql-api/):
+
+```
+GET https://api.cloudflare.com/client/v4/accounts/{account_id}/analytics_engine/sql
+Authorization: Bearer {api_token}
+Content-Type: text/plain
+
+SELECT blob1 AS event, SUM(_sample_interval) AS count
+FROM teazr_events
+WHERE timestamp > NOW() - INTERVAL '1' HOUR
+GROUP BY blob1
+```
+
+### Fallback: Function logs
+
+If the `AE` binding is not yet configured, events are logged as structured JSON to the Pages Function console. View these at:
+
+**Cloudflare Dashboard → Workers & Pages → teazr → Deployments → (select deployment) → Functions → Real-time Logs** (or view past invocations).
+
 ## QA mode
 
 Append `?qa=1` to any page URL to enable the QA overlay:
