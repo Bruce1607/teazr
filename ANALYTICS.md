@@ -146,6 +146,7 @@ If the `AE` binding is not yet configured, events are logged as structured JSON 
 ## QA mode
 
 Append `?qa=1` to any page URL to enable the QA overlay:
+
 - Fixed panel at bottom-right showing last 20 tracked events
 - Events also logged to `console.log` with `[TEAZR QA]` prefix
 - The overlay does NOT send extra events

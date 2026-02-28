@@ -13,34 +13,19 @@
   const COOLDOWN_MS = 5 * 60 * 1000;
   const SHARE_BASE = 'https://teazr.app';
 
-  const TEAZE_MOMENTS = ['START', 'KEEP_GOING', 'RECONNECT', 'CLOSE_KINDLY', 'BOUNDARY'];
-  const TEAZE_MOMENTS_FLIRTY = ['START', 'KEEP_GOING', 'RECONNECT', 'CLOSE_KINDLY'];
-  const TEAZE_MOMENTS_DISPLAY = { START: 'START', KEEP_GOING: 'KEEP GOING', RECONNECT: 'RECONNECT', CLOSE_KINDLY: 'CLOSE KINDLY', BOUNDARY: 'BOUNDARY' };
+  const TEAZE_MOMENTS = ['START', 'KEEP_GOING', 'RECONNECT', 'FOLLOW_UP', 'CLOSE_KINDLY', 'BOUNDARY'];
+  const TEAZE_MOMENTS_DISPLAY = { START: 'START', KEEP_GOING: 'KEEP GOING', RECONNECT: 'RECONNECT', FOLLOW_UP: 'FOLLOW UP', CLOSE_KINDLY: 'CLOSE KINDLY', BOUNDARY: 'BOUNDARY' };
   const TEAZE_STYLES = ['PLAYFUL', 'CLASSY'];
-  const TEAZE_SITUATIONS_BOUNDARY = [
-    { id: 'unwanted_pic', label: 'Unwanted pic' },
-    { id: 'too_pushy', label: 'Too pushy / won\'t stop' }
-  ];
-  const TEAZE_SITUATIONS_GENERAL = [
-    { id: 'ANY', label: 'Any' },
-    { id: 'after_story', label: 'After their story' },
-    { id: 'late_reply', label: 'Late reply' },
-    { id: 'first_message', label: 'First message' },
-    { id: 'reschedule', label: 'Reschedule' },
-    { id: 'they_went_quiet', label: 'They went quiet' }
-  ];
-  const TEAZE_RECENT_MAX = 30;
+  const TEAZE_RECENT_MAX = 12;
   const RECENT_COPIED_MAX = 30;
   const SAVED_MAX = 60;
-  const CATEGORY_STORAGE_KEY = 'teazr_category';
   const TEAZE_TAB_KEY = 'teazr_teaze_tab';
   const TEAZE_SEEDED_KEY = 'teaze_seeded';
   const APP_VERSION = '4';
 
   let teazeCategory = 'GENERAL';
   let teazeMoment = 'START';
-  let teazeStyle = 'CLASSY';
-  let teazeSituation = 'ANY';
+  let teazeStyle = 'PLAYFUL';
   let teazeCurrentIds = [];
   let teazeSeedBannerData = null;
   let teazeActiveTab = 'TODAY';
@@ -110,7 +95,6 @@
   let lastResultData = null;
   let challengeBannerData = null;
   let isShareEntry = false;
-  let shareName = '';
 
   function render(html) {
     document.getElementById('app').innerHTML = html;
@@ -128,13 +112,9 @@
     } catch (_) { return null; }
   }
 
-  function makeShareUrl(data, name) {
+  function makeShareUrl(data) {
     const shortSeed = data.flirt + '.' + data.mystery + '.' + data.replyRisk;
-    let url = SHARE_BASE + '/?s=' + shortSeed;
-    if (name && name.length > 0) {
-      url += '&n=' + encodeURIComponent(name);
-    }
-    return url;
+    return SHARE_BASE + '/?s=' + shortSeed;
   }
 
   function parseSeedParam() {
@@ -163,20 +143,6 @@
     } catch (_) { return null; }
   }
 
-  function parseNameParam() {
-    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-    const n = params.get('n');
-    if (!n || typeof n !== 'string') return null;
-    const sanitized = sanitizeName(n);
-    return sanitized && sanitized.length > 0 ? sanitized : null;
-  }
-
-  function sanitizeName(input) {
-    if (typeof input !== 'string') return '';
-    let s = input.trim();
-    if (s.length > 20) s = s.slice(0, 20);
-    return s.replace(/[^a-zA-Z0-9 _]/g, '');
-  }
 
   function emitAnalytics(eventName) {
     if (typeof window === 'undefined') return;
@@ -377,20 +343,8 @@
     return false;
   }
 
-  /**
-   * Bucket key for anti-repeat: category|moment|style|situation.
-   */
-  function teazeBucketKey(category, moment, style, situation) {
-    const m = String(moment).replace(/\s+/g, '_');
-    const sty = (m === 'BOUNDARY') ? '' : String(style);
-    const sit = situation ? String(situation) : (m === 'BOUNDARY' ? 'unwanted_pic' : 'ANY');
-    return 'teaz_v3:' + String(category) + '|' + m + '|' + sty + '|' + sit;
-  }
-
-  function getEffectiveSituation(moment, situation) {
-    const m = String(moment).replace(/\s+/g, '_');
-    if (m === 'BOUNDARY') return situation || 'unwanted_pic';
-    return situation || 'ANY';
+  function teazeBucketKey(moment, style) {
+    return 'teazr:last12:' + String(moment).replace(/\s+/g, '_') + ':' + String(style);
   }
 
   /** Returns last N shown IDs for this bucket from localStorage. maxCount limits how many we use (for small buckets). */
@@ -470,32 +424,18 @@
     return idx < 0;
   }
 
-  /**
-   * Picks 3 suggestions with anti-repeat. excludeIds = currently visible 3 (must not reappear on MORE OPTIONS).
-   * - If bucket has fewer than N+6 items, reduce N for this bucket (graceful degrade).
-   * - Preferred: not in exclude, not in last-N history.
-   * - Fallback: not in exclude (allow recent if pool small).
-   * - Content filter: reject suggestions with banned phrases; replace with another.
-   */
-  function pickTeazeMessages(category, moment, style, situation, excludeIds) {
-    const effSit = getEffectiveSituation(moment, situation);
+  function pickTeazeMessages(moment, style) {
     const bucket = (typeof window.getTeazeBucket === 'function')
-      ? window.getTeazeBucket(category, moment, style, effSit)
+      ? window.getTeazeBucket('GENERAL', moment, style)
       : [];
     if (!bucket || !bucket.length) return [];
 
-    const bucketKey = teazeBucketKey(category, moment, style, effSit);
-    // Graceful degrade: if bucket has fewer than N+6, use smaller N so we can still get fresh sets
-    const effectiveMax = Math.min(TEAZE_RECENT_MAX, Math.max(0, bucket.length - 6));
-    const recentIds = getTeazeRecentIds(bucketKey, effectiveMax);
-    const exclude = new Set((excludeIds || []).map(function(id) { return String(id); }));
+    const bk = teazeBucketKey(moment, style);
+    const recentIds = getTeazeRecentIds(bk, TEAZE_RECENT_MAX);
+    const recentSet = new Set(recentIds);
 
-    const preferred = bucket.filter(function(m) {
-      return !exclude.has(String(m.id)) && !recentIds.includes(String(m.id));
-    });
-    const fallback = bucket.filter(function(m) { return !exclude.has(String(m.id)); });
-    let pool = preferred.length >= 3 ? preferred : fallback;
-    if (pool.length === 0) pool = bucket;
+    const preferred = bucket.filter(function(m) { return !recentSet.has(String(m.id)); });
+    let pool = preferred.length >= 3 ? preferred : bucket;
 
     const shuffled = pool.slice().sort(function() { return Math.random() - 0.5; });
     let picked = shuffled.slice(0, 3);
@@ -521,17 +461,11 @@
 
   function makeTeazeShareUrl() {
     const obj = {
-      c: teazeCategory,
       m: teazeMoment,
       s: teazeStyle,
-      sit: teazeMoment === 'BOUNDARY' ? teazeSituation : (teazeSituation !== 'ANY' ? teazeSituation : null),
-      i: teazeCurrentIds.slice(0, 3)
+      i: teazeCurrentIds.slice(0, 3),
+      l: teazeMoment + '/' + teazeStyle
     };
-    if (teazeMoment === 'BOUNDARY') {
-      obj.l = (teazeMoment || '') + '/' + (teazeSituation || '');
-    } else {
-      obj.l = (teazeMoment || '') + '/' + (teazeStyle || '') + (teazeSituation && teazeSituation !== 'ANY' ? '/' + teazeSituation : '');
-    }
     const json = JSON.stringify(obj);
     const enc = toUrlSafeBase64(json);
     return SHARE_BASE + '/teaze?s=' + encodeURIComponent(enc);
@@ -551,23 +485,19 @@
   }
 
   function runQaSpins() {
-    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
-    const effSit = getEffectiveSituation(teazeMoment, teazeSituation);
+    const bk = teazeBucketKey(teazeMoment, teazeStyle);
     const bucket = (typeof window.getTeazeBucket === 'function')
-      ? window.getTeazeBucket(teazeCategory, teazeMoment, teazeStyle, effSit)
+      ? window.getTeazeBucket('GENERAL', teazeMoment, teazeStyle)
       : [];
     const poolSize = bucket ? bucket.length : 0;
-    const winSize = Math.min(30, Math.max(0, poolSize - 3));
     const seen = {};
     let uniqueCount = 0;
     let repeats = 0;
-    let excludeIds = [];
     for (let i = 0; i < 100; i++) {
-      const picked = pickTeazeMessages(teazeCategory, teazeMoment, teazeStyle, teazeSituation, excludeIds);
-      excludeIds = picked.map(function(m) { return m.id; });
+      const picked = pickTeazeMessages(teazeMoment, teazeStyle);
       if (picked.length) {
-        const recent = getTeazeRecentIds(bucketKey, winSize);
-        saveTeazeRecentIds(bucketKey, recent.concat(excludeIds));
+        const ids = picked.map(function(m) { return m.id; });
+        saveTeazeRecentIds(bk, getTeazeRecentIds(bk).concat(ids));
       }
       for (let j = 0; j < picked.length; j++) {
         const id = picked[j].id;
@@ -575,7 +505,7 @@
         else { seen[id] = true; uniqueCount++; }
       }
     }
-    return { bucketKey, poolSize, winSize, uniqueCount, repeats };
+    return { bucketKey: bk, poolSize, uniqueCount, repeats };
   }
 
   function buildA2HSHint() {
@@ -673,25 +603,13 @@
       const data = JSON.parse(decoded);
       if (!data || typeof data.m !== 'string') return null;
       const momentRaw = String(data.m).trim().replace(/\s+/g, '_');
-      const category = data.c && (data.c === 'GENERAL' || data.c === 'FLIRTY') ? data.c : 'GENERAL';
-      const momentsForCat = category === 'GENERAL' ? TEAZE_MOMENTS : TEAZE_MOMENTS_FLIRTY;
-      if (!momentsForCat.includes(momentRaw)) return null;
-      let style = 'CLASSY';
-      let situation = null;
-      if (momentRaw === 'BOUNDARY') {
-        situation = (data.sit === 'unwanted_pic' || data.sit === 'too_pushy') ? data.sit : 'unwanted_pic';
-        if (category !== 'GENERAL') return null;
-      } else {
-        style = (data.s === 'PLAYFUL' || data.s === 'CLASSY') ? data.s : 'CLASSY';
-        situation = (data.sit && ['ANY','after_story','late_reply','first_message','reschedule','they_went_quiet'].indexOf(data.sit) >= 0) ? data.sit : 'ANY';
-      }
+      if (!TEAZE_MOMENTS.includes(momentRaw)) return null;
+      const style = (data.s === 'PLAYFUL' || data.s === 'CLASSY') ? data.s : 'PLAYFUL';
       return {
-        category: category,
         moment: momentRaw,
         style: style,
-        situation: situation,
         ids: Array.isArray(data.i) ? data.i.slice(0, 3) : [],
-        label: typeof data.l === 'string' ? data.l : (momentRaw + '/' + (situation || style))
+        label: typeof data.l === 'string' ? data.l : (momentRaw + '/' + style)
       };
     } catch (_) { return null; }
   }
@@ -742,13 +660,13 @@
       return;
     }
 
-    const bucketKey = teazeBucketKey(teazeCategory, teazeMoment, teazeStyle, getEffectiveSituation(teazeMoment, teazeSituation));
-    const messages = pickTeazeMessages(teazeCategory, teazeMoment, teazeStyle, teazeSituation, teazeCurrentIds);
+    const bk = teazeBucketKey(teazeMoment, teazeStyle);
+    const messages = pickTeazeMessages(teazeMoment, teazeStyle);
     if (!messages || messages.length === 0) {
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
       render(`
         <div class="teaze-screen" data-teaze-root>
-          <h1 class="teaze-title">SEND A TEAZ</h1>
+          <h1 class="teaze-title">GEN Z DM LINES</h1>
           <p class="teaze-loading">Loading…</p>
         </div>
       `);
@@ -759,30 +677,16 @@
     }
     teazeEmptyRetries = 0;
     teazeCurrentIds = messages.map(function(m) { return m.id; });
-    saveTeazeRecentIds(bucketKey, getTeazeRecentIds(bucketKey).concat(teazeCurrentIds));
+    saveTeazeRecentIds(bk, getTeazeRecentIds(bk).concat(teazeCurrentIds));
 
-    const momentsForCat = teazeCategory === 'GENERAL' ? TEAZE_MOMENTS : TEAZE_MOMENTS_FLIRTY;
-    const momentOpts = momentsForCat.map(function(m) {
+    const momentOpts = TEAZE_MOMENTS.map(function(m) {
       const escaped = m.replace(/'/g, '&#39;');
       const label = TEAZE_MOMENTS_DISPLAY[m] || m;
       return `<button type="button" class="teaze-selector-btn ${teazeMoment === m ? 'active' : ''}" data-moment="${escaped}">${label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</button>`;
     }).join('');
-    const styleOpts = teazeMoment === 'BOUNDARY' ? '' : TEAZE_STYLES.map(function(s) {
+    const styleOpts = TEAZE_STYLES.map(function(s) {
       return `<button type="button" class="teaze-selector-btn ${teazeStyle === s ? 'active' : ''}" data-style="${s}">${s}</button>`;
     }).join('');
-    const situationList = teazeMoment === 'BOUNDARY' ? TEAZE_SITUATIONS_BOUNDARY : TEAZE_SITUATIONS_GENERAL;
-    const situationGroupHtml = teazeMoment === 'BOUNDARY'
-      ? situationList.map(function(sit) {
-          return `<button type="button" class="teaze-selector-btn ${teazeSituation === sit.id ? 'active' : ''}" data-situation="${sit.id}">${sit.label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</button>`;
-        }).join('')
-      : situationList.map(function(sit) {
-          return `<option value="${sit.id}" ${teazeSituation === sit.id ? 'selected' : ''}>${sit.label.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</option>`;
-        }).join('');
-    const situationUi = `
-      <div class="teaze-selector-group">
-        <label class="teaze-selector-label">Situation</label>
-        ${teazeMoment === 'BOUNDARY' ? '<div class="teaze-selector-btns">' + situationGroupHtml + '</div>' : '<select class="teaze-situation-select" data-situation-select aria-label="Situation" style="font-size:16px">' + situationGroupHtml + '</select>'}
-      </div>`;
 
     const msgBlocks = messages.map(function(m, idx) {
       const escaped = m.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -798,35 +702,22 @@
       `;
     }).join('');
 
-    const styleGroupHtml = teazeMoment === 'BOUNDARY' ? '' : `
-      <div class="teaze-selector-group">
-        <label class="teaze-selector-label">Styles</label>
-        <div class="teaze-selector-btns">${styleOpts}</div>
-      </div>`;
-    const categoryOpts = `
-      <div class="teaze-selector-group">
-        <label class="teaze-selector-label">Category</label>
-        <div class="teaze-category-toggle">
-          <button type="button" class="teaze-selector-btn ${teazeCategory === 'GENERAL' ? 'active' : ''}" data-category="GENERAL">GENERAL</button>
-          <button type="button" class="teaze-selector-btn ${teazeCategory === 'FLIRTY' ? 'active' : ''}" data-category="FLIRTY">FLIRTY</button>
-        </div>
-      </div>`;
     const safetyMicrocopy = teazeMoment === 'BOUNDARY' ? '<p class="teaze-safety-microcopy">If you feel unsafe, stop replying and use platform block/report.</p>' : '';
     const bannerHtml = teazeSeedBannerData ? buildTeazeSeedBanner() : '';
-    const categoryMicrocopy = teazeCategory === 'GENERAL' ? 'Short. Human. Copy/paste.' : 'Playful, not cringe.';
 
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        <h1 class="teaze-title">SEND A TEAZ</h1>
+        <h1 class="teaze-title">GEN Z DM LINES</h1>
         <div class="teaze-selectors">
-          ${categoryOpts}
           <div class="teaze-selector-group">
             <label class="teaze-selector-label">Moments</label>
             <div class="teaze-selector-btns">${momentOpts}</div>
           </div>
-          ${styleGroupHtml}
-          ${situationUi}
+          <div class="teaze-selector-group">
+            <label class="teaze-selector-label">Styles</label>
+            <div class="teaze-selector-btns">${styleOpts}</div>
+          </div>
         </div>
         <div class="teaze-tabs">
           <button type="button" class="teaze-tab ${teazeActiveTab === 'TODAY' ? 'active' : ''}" data-tab="TODAY">TODAY</button>
@@ -839,36 +730,17 @@
           </div>
         </div>
         <div class="teaze-messages">${msgBlocks}</div>
-        <p class="teaze-category-microcopy">${categoryMicrocopy}</p>
+        <p class="teaze-category-microcopy">Gen Z DM lines. Copy/paste.</p>
         ${safetyMicrocopy}
-        <div class="teaze-share-row">
-          <p class="teaze-share-hint">Screenshot & share.</p>
-          <button type="button" class="btn-teaze-whatsapp" data-action="share-whatsapp">SHARE ON WHATSAPP</button>
-          <button type="button" class="btn-teaze-copy-link" data-action="copy-link">COPY LINK</button>
-        </div>
         ${buildA2HSHint()}
         ${isQaMode() ? '<div class="teaze-qa-panel" data-qa-panel><button type="button" data-action="qa-run">Run 100 spins</button><pre id="teaze-qa-output"></pre></div>' : ''}
       </div>
     `);
   }
 
-  function setTeazeCategory(c) {
-    if (c === teazeCategory) return;
-    teazeCategory = c;
-    try { localStorage.setItem(CATEGORY_STORAGE_KEY, c); } catch (_) {}
-    if (c === 'FLIRTY' && teazeMoment === 'BOUNDARY') {
-      teazeMoment = 'START';
-      teazeSituation = 'ANY';
-      teazeStyle = 'CLASSY';
-    }
-    teazeCurrentIds = [];
-    showTeazeScreen();
-  }
-
   function setTeazeMoment(m) {
     if (m === teazeMoment) return;
     teazeMoment = m;
-    teazeSituation = (m === 'BOUNDARY') ? 'unwanted_pic' : 'ANY';
     teazeCurrentIds = [];
     showTeazeScreen();
   }
@@ -876,13 +748,6 @@
   function setTeazeStyle(s) {
     if (s === teazeStyle) return;
     teazeStyle = s;
-    teazeCurrentIds = [];
-    showTeazeScreen();
-  }
-
-  function setTeazeSituation(sit) {
-    if (sit === teazeSituation) return;
-    teazeSituation = sit;
     teazeCurrentIds = [];
     showTeazeScreen();
   }
@@ -908,9 +773,8 @@
   }
 
   function getMessageTextById(messageId) {
-    const effSit = getEffectiveSituation(teazeMoment, teazeSituation);
     const bucket = (typeof window.getTeazeBucket === 'function')
-      ? window.getTeazeBucket(teazeCategory, teazeMoment, teazeStyle, effSit)
+      ? window.getTeazeBucket('GENERAL', teazeMoment, teazeStyle)
       : [];
     const msg = bucket && bucket.find(function(m) { return m.id === messageId; });
     return msg ? msg.text : null;
@@ -987,20 +851,12 @@
   function setupTeazeClickDelegation() {
     const app = document.getElementById('app');
     if (!app) return;
-    app.addEventListener('change', function handleTeazeChange(e) {
-      if (e.target && e.target.getAttribute && e.target.getAttribute('data-situation-select') !== null && app.querySelector('[data-teaze-root]')) {
-        const val = e.target.value;
-        if (val && val !== teazeSituation) setTeazeSituation(val);
-      }
-    });
     app.addEventListener('click', function handleTeazeClick(e) {
       if (!app.querySelector('[data-teaze-root]')) return;
       const target = e.target;
       const tabBtn = target.closest('[data-tab]');
-      const categoryBtn = target.closest('[data-category]');
       const momentBtn = target.closest('[data-moment]');
       const styleBtn = target.closest('[data-style]');
-      const situationBtn = target.closest('[data-situation]');
       const actionEl = target.closest('[data-action]');
       if (tabBtn) {
         const tab = tabBtn.getAttribute('data-tab');
@@ -1012,11 +868,6 @@
         return;
       }
 
-      if (categoryBtn) {
-        const c = categoryBtn.getAttribute('data-category');
-        if (c && (c === 'GENERAL' || c === 'FLIRTY')) setTeazeCategory(c);
-        return;
-      }
       if (momentBtn) {
         const m = momentBtn.getAttribute('data-moment');
         if (m) setTeazeMoment(m.replace(/&#39;/g, "'"));
@@ -1025,11 +876,6 @@
       if (styleBtn) {
         const s = styleBtn.getAttribute('data-style');
         if (s) setTeazeStyle(s);
-        return;
-      }
-      if (situationBtn) {
-        const sit = situationBtn.getAttribute('data-situation');
-        if (sit) setTeazeSituation(sit);
         return;
       }
       if (actionEl) {
@@ -1100,27 +946,15 @@
     ensureTeazeHistorySeeded();
     const seed = parseTeazeSeedParam();
     teazeSeedBannerData = seed;
-    try {
-      const stored = localStorage.getItem(CATEGORY_STORAGE_KEY);
-      teazeCategory = (stored === 'FLIRTY' || stored === 'GENERAL') ? stored : 'GENERAL';
-    } catch (_) { teazeCategory = 'GENERAL'; }
     teazeMoment = 'START';
-    teazeStyle = 'CLASSY';
-    teazeSituation = 'ANY';
+    teazeStyle = 'PLAYFUL';
     teazeCurrentIds = [];
     teazeActiveTab = 'TODAY';
     if (seed) {
-      teazeCategory = seed.category;
       teazeMoment = seed.moment;
-      teazeStyle = seed.style || 'CLASSY';
-      teazeSituation = seed.situation || (seed.moment === 'BOUNDARY' ? 'unwanted_pic' : 'ANY');
-      if (teazeCategory === 'FLIRTY' && teazeMoment === 'BOUNDARY') {
-        teazeMoment = 'START';
-        teazeSituation = 'ANY';
-        teazeStyle = 'CLASSY';
-      }
+      teazeStyle = seed.style || 'PLAYFUL';
     }
-    sendTeazeEvent('teaze_opened', { category: teazeCategory, moment: teazeMoment, style: teazeStyle });
+    sendTeazeEvent('teaze_opened', { moment: teazeMoment, style: teazeStyle });
     ensureBackButton();
     showTeazeScreen();
   }
@@ -1167,50 +1001,18 @@
 
   function showStart() {
     if (!isShareEntry) challengeBannerData = null;
-    if (isShareEntry) {
-      render(`
-        <div class="start-screen">
-          <h1 class="start-title">TEAZR</h1>
-          <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
-          <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
-          <a href="/teaze?v=2" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
-          <div class="quiz-secondary-wrap">
-            <button type="button" class="btn-quiz-secondary" onclick="TEAZR.start()">TAKE THE QUIZ</button>
-            <p class="quiz-helper">6 questions · 30 seconds</p>
-            <p class="quiz-fun-note">Discover your flirt energy. If you dare.</p>
-          </div>
-        </div>
-      `);
-      return;
-    }
-    const remaining = getCooldownRemaining();
-    if (remaining > 0) {
-      const msg = formatCooldown(remaining);
-      render(`
-        <div class="start-screen">
-          <h1 class="start-title">TEAZR</h1>
-          <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
-          <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
-          <p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${msg}.</p>
-          <a href="/teaze?v=2" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
-          <div class="quiz-secondary-wrap">
-            <p class="quiz-fun-note">Discover your flirt energy. If you dare.</p>
-          </div>
-          <p class="footer">Made for fun.</p>
-        </div>
-      `);
-      return;
-    }
+    const remaining = isShareEntry ? 0 : getCooldownRemaining();
+    const cooldownHtml = remaining > 0 ? `<p class="cooldown-msg">Your vibe needs time to recharge. Try again in ${formatCooldown(remaining)}.</p>` : '';
+    const quizBtn = (isShareEntry || remaining <= 0) ? `<button type="button" class="btn-home-action" onclick="TEAZR.start()">FLIRT ENERGY CHECK</button>` : '';
     render(`
       <div class="start-screen">
         <h1 class="start-title">TEAZR</h1>
         <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
         <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
-        <a href="/teaze?v=2" class="btn-primary-teaze" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
-        <div class="quiz-secondary-wrap">
-          <button type="button" class="btn-quiz-secondary" onclick="TEAZR.start()">TAKE THE QUIZ</button>
-          <p class="quiz-helper">6 questions · 30 seconds</p>
-          <p class="quiz-fun-note">Discover your flirt energy. If you dare.</p>
+        ${cooldownHtml}
+        <div class="home-actions">
+          ${quizBtn}
+          <a href="/teaze?v=2" class="btn-home-action" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
         </div>
       </div>
     `);
@@ -1227,7 +1029,7 @@
     ).join('');
     const banner = challengeBannerData ? `
       <div class="challenge-banner">
-        ${challengeBannerData.sharerName ? challengeBannerData.sharerName + ' got' : 'Someone got'}: ${challengeBannerData.flirtLabel} / ${challengeBannerData.mysteryLabel} / ${challengeBannerData.replyRiskLabel} — can you beat it?
+        Someone got: ${challengeBannerData.flirtLabel} / ${challengeBannerData.mysteryLabel} / ${challengeBannerData.replyRiskLabel} — can you beat it?
       </div>
     ` : '';
     render(`
@@ -1273,17 +1075,6 @@
     return { flirt, mystery, replyRisk };
   }
 
-  function getSanitizedShareName(val) {
-    const s = sanitizeName(typeof val === 'string' ? val : '');
-    return s.length > 0 ? s : null;
-  }
-
-  function updateShareName(raw) {
-    shareName = getSanitizedShareName(raw) || '';
-    if (lastResultData) {
-      lastShareUrl = makeShareUrl(lastResultData, shareName || null);
-    }
-  }
 
   function renderResultScreen(data, fromQuiz) {
     const flirtLabel = labelForScore(data.flirt, FLIRT_LABELS);
@@ -1291,7 +1082,6 @@
     const replyRiskLabel = labelForScore(data.replyRisk, REPLY_RISK_LABELS);
     const oneLiner = getOneLiner(data.flirt, data.mystery, data.replyRisk);
 
-    shareName = '';
     lastShareUrl = makeShareUrl(data);
     lastResultData = { ...data, flirtLabel, mysteryLabel, replyRiskLabel, oneLiner };
 
@@ -1308,14 +1098,9 @@
           <p class="result-oneliner">${oneLiner}</p>
           <p class="result-footer">Try yours: teazr.app</p>
         </div>
-        <p class="screenshot-title">Screenshot & share</p>
-        <p class="screenshot-sub">Post it or send it to someone 😉</p>
+        <p class="screenshot-title">NO CONTEXT.</p>
+        <p class="screenshot-sub">Just vibes.</p>
         <div class="result-actions">
-          <div class="share-name-row">
-            <label class="share-name-label" for="teazr-name-input">Your name (optional)</label>
-            <input type="text" id="teazr-name-input" placeholder="e.g., Bruno" maxlength="20"
-                   oninput="TEAZR.updateShareName(this.value)" />
-          </div>
           <button class="btn-primary" id="btn-whatsapp" onclick="TEAZR.shareWhatsApp()">Share on WhatsApp</button>
           <button class="btn-secondary" id="btn-copy" onclick="TEAZR.copyLink()">Copy link</button>
           <button class="btn-tertiary" onclick="TEAZR.restart()">Try again</button>
@@ -1337,9 +1122,7 @@
 
   function copyLink() {
     if (!lastResultData) return;
-    const input = document.getElementById('teazr-name-input');
-    const name = input ? getSanitizedShareName(input.value) : null;
-    const url = makeShareUrl(lastResultData, name);
+    const url = makeShareUrl(lastResultData);
     lastShareUrl = url;
     copyResultUrl(url).then(() => {
       showToast('Link copied');
@@ -1350,14 +1133,10 @@
 
   function shareWhatsApp() {
     if (!lastResultData) return;
-    const input = document.getElementById('teazr-name-input');
-    const name = input ? getSanitizedShareName(input.value) : null;
-    const url = makeShareUrl(lastResultData, name);
+    const url = makeShareUrl(lastResultData);
     lastShareUrl = url;
     const { flirtLabel, mysteryLabel, replyRiskLabel, oneLiner } = lastResultData;
-    const shareText = name
-      ? `TEAZR: ${name} got ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${url}`
-      : `TEAZR: ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${url}`;
+    const shareText = `TEAZR: ${flirtLabel}/${mysteryLabel}/${replyRiskLabel} — "${oneLiner}" ${url}`;
     const encoded = encodeURIComponent(shareText);
     window.open('https://wa.me/?text=' + encoded, '_blank', 'noopener');
     emitAnalytics('share_whatsapp_clicked');
@@ -1380,7 +1159,6 @@
     lastResultData = null;
     challengeBannerData = null;
     isShareEntry = false;
-    shareName = '';
     const cleanUrl = (typeof window !== 'undefined' && window.location)
       ? (window.location.origin + (window.location.pathname || '/'))
       : SHARE_BASE + '/';
@@ -1398,7 +1176,6 @@
     answer,
     copyLink,
     shareWhatsApp,
-    updateShareName,
     navigateToTeaze,
     navigateHome,
     setTeazeMoment,
@@ -1430,12 +1207,10 @@
     const seedData = parseSeedParam();
     if (seedData && isValidSeedData(seedData)) {
       isShareEntry = true;
-      const sharerName = parseNameParam();
       challengeBannerData = {
         flirtLabel: labelForScore(seedData.flirt, FLIRT_LABELS),
         mysteryLabel: labelForScore(seedData.mystery, MYSTERY_LABELS),
-        replyRiskLabel: labelForScore(seedData.replyRisk, REPLY_RISK_LABELS),
-        sharerName: sharerName
+        replyRiskLabel: labelForScore(seedData.replyRisk, REPLY_RISK_LABELS)
       };
     }
     showStart();
