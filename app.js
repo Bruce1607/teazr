@@ -1132,6 +1132,14 @@
     } else {
       url = '/teaze?v=' + TEAZE_UI_VERSION;
     }
+    // Preserve qa and src parameters
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('qa')) {
+      url += (url.includes('?') ? '&' : '?') + 'qa=' + params.get('qa');
+    }
+    if (params.get('src')) {
+      url += (url.includes('?') ? '&' : '?') + 'src=' + params.get('src');
+    }
     try { sessionStorage.setItem('teazr_from_home', '1'); } catch (_) {}
     if (window.history && window.history.pushState) {
       window.history.pushState({ teaze: true }, '', url);
@@ -1143,10 +1151,16 @@
   }
 
   function navigateHome() {
+    var url = '/';
+    // Preserve qa parameter
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('qa')) {
+      url += '?qa=' + params.get('qa');
+    }
     if (window.history && window.history.pushState) {
-      window.history.pushState({}, '', '/');
+      window.history.pushState({}, '', url);
     } else {
-      window.location.href = '/';
+      window.location.href = url;
     }
     init();
   }
