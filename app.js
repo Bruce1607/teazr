@@ -563,6 +563,13 @@
       '</div>';
   }
 
+  function buildTeazeHeader() {
+    return '<div class="teaze-header">' +
+      '<h1 class="teaze-title">DM LINES</h1>' +
+      '<p class="teaze-subtitle">Gen Z vibes. No context.</p>' +
+      '</div>';
+  }
+
   const TEAZE_UI_VERSION = '2';
 
   /** Reusable BackButton: show on all non-home routes. history.back() if length>1 else navigate("/"). */
@@ -652,21 +659,28 @@
       ? '<p class="teaze-empty-hint">' + (emptyMsg || 'Nothing here yet.') + '</p>'
       : list.map(function(item) {
           const t = (item.text || '').trim();
-          const escaped = t.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          const escaped = t
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
           const saved = isSaved(t);
+          const qaDebug = isQaMode() ? '<p class="teaze-card-debug">saved:' + (saved ? 'true' : 'false') + '</p>' : '';
           return `
-            <div class="teaze-message-card">
+            <div class="teaze-message-card teaze-card-inline">
               <p class="teaze-message-text">${escaped}</p>
               <div class="teaze-card-actions">
-                <button type="button" class="btn-teaze-copy" data-action="copy" data-text="${escaped}">COPY</button>
+                <button type="button" class="btn-teaze-copy-inline" data-action="copy" data-text="${escaped}">COPY</button>
                 <button type="button" class="btn-teaze-save ${saved ? 'saved' : ''}" data-action="save-toggle" data-text="${escaped}">${saved ? 'SAVED' : 'SAVE'}</button>
               </div>
+              ${qaDebug}
             </div>`;
         }).join('');
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        <h1 class="teaze-title">SEND A TEAZ</h1>
+        ${buildTeazeHeader()}
         <div class="teaze-tabs">
           <button type="button" class="teaze-tab ${teazeActiveTab === 'TODAY' ? 'active' : ''}" data-tab="TODAY">TODAY</button>
           <button type="button" class="teaze-tab ${teazeActiveTab === 'COPIED' ? 'active' : ''}" data-tab="COPIED">COPIED</button>
@@ -696,7 +710,7 @@
       teazeEmptyRetries = (teazeEmptyRetries || 0) + 1;
       render(`
         <div class="teaze-screen" data-teaze-root>
-          <h1 class="teaze-title">GEN Z DM LINES</h1>
+          ${buildTeazeHeader()}
           <p class="teaze-loading">Loading…</p>
         </div>
       `);
@@ -719,12 +733,22 @@
     }).join('');
 
     const msgBlocks = messages.map(function(m, idx) {
-      const escaped = m.text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const escaped = m.text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
       const saved = isSaved(m.text);
+      const qaDebug = isQaMode() ? '<p class="teaze-card-debug">saved:' + (saved ? 'true' : 'false') + '</p>' : '';
       return `
         <div class="teaze-message-card teaze-card-inline" data-id="${m.id}">
           <p class="teaze-message-text">${escaped}</p>
-          <button type="button" class="btn-teaze-copy-inline" data-action="copy" data-id="${m.id}" data-index="${idx}">COPY</button>
+          <div class="teaze-card-actions">
+            <button type="button" class="btn-teaze-copy-inline" data-action="copy" data-id="${m.id}" data-index="${idx}">COPY</button>
+            <button type="button" class="btn-teaze-save ${saved ? 'saved' : ''}" data-action="save-toggle" data-id="${m.id}">${saved ? 'SAVED' : 'SAVE'}</button>
+          </div>
+          ${qaDebug}
         </div>
       `;
     }).join('');
@@ -735,7 +759,7 @@
     render(`
       <div class="teaze-screen" data-teaze-root>
         ${bannerHtml}
-        <h1 class="teaze-title">GEN Z DM LINES</h1>
+        ${buildTeazeHeader()}
         <div class="teaze-selectors">
           <div class="teaze-selector-group">
             <label class="teaze-selector-label">Moments</label>
@@ -781,10 +805,15 @@
 
   function copyTeazeText(text) {
     if (!text) return;
-    const decoded = text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
+    const decoded = text
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
     copyResultUrl(decoded).then(function() {
       addToRecentCopied(decoded);
-      showToast('Copied');
+      showToast('Copied.');
       sendTeazeEvent('copy_clicked', { context: 'teaze_message', category: teazeCategory, moment: teazeMoment, style: teazeStyle });
     }).catch(function() { showToast('Could not copy'); });
   }
@@ -792,7 +821,12 @@
   function toggleTeazeSave(text) {
     if (!text) return;
     const decoded = typeof text === 'string' && text.indexOf('&') >= 0
-      ? text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&#39;/g, "'")
+      ? text
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
       : text;
     const nowSaved = toggleSaved(decoded);
     showToast(nowSaved ? 'Saved' : 'Removed');
@@ -812,7 +846,7 @@
     if (!text) return;
     copyResultUrl(text).then(function() {
       addToRecentCopied(text);
-      showToast('Copied');
+      showToast('Copied.');
       const btn = document.querySelector('[data-action="copy"][data-id="' + messageId + '"]');
       if (btn) {
         btn.textContent = 'COPIED';
@@ -822,7 +856,7 @@
           btn.textContent = 'COPY';
           btn.classList.remove('copied');
           btn.disabled = false;
-        }, 1000);
+        }, 800);
       }
       sendTeazeEvent('copy_clicked', { context: 'teaze_message', category: teazeCategory, moment: teazeMoment, style: teazeStyle });
     }).catch(function() { showToast('Could not copy'); });
@@ -987,6 +1021,7 @@
   }
 
   function navigateToTeaze() {
+    clearCooldownTimer();
     var url;
     if (getPath() === '/teaze') {
       url = getTeazeBaseUrl();
@@ -1039,7 +1074,7 @@
         <p class="start-headline">BETTER DMs — LESS OVERTHINKING.</p>
         <p class="start-subline">PICK A MOMENT. COPY A LINE. PASTE IN DM.</p>
         <div class="home-actions">
-          <button type="button" class="btn-home-action${disabled ? ' btn-disabled' : ''}" id="home-quiz-btn" onclick="TEAZR.start()"${disabled ? ' disabled' : ''}>FLIRT ENERGY CHECK</button>
+          <button type="button" class="btn-home-action${disabled ? ' btn-disabled' : ''}" id="home-quiz-btn" onclick="TEAZR.start()"${disabled ? ' disabled' : ''}>TAKE THE QUIZ</button>
           ${disabled ? '<p class="home-cooldown-label" id="home-cooldown-label">' + cdLabel + '</p>' : ''}
           <a href="/teaze?v=2" class="btn-home-action" onclick="event.preventDefault();TEAZR.navigateToTeaze();">SEND A TEAZ</a>
         </div>
@@ -1048,6 +1083,10 @@
 
     if (disabled) {
       startCooldownTimer(function(ms) {
+        if (!document.querySelector('.start-screen')) {
+          clearCooldownTimer();
+          return;
+        }
         const btn = document.getElementById('home-quiz-btn');
         const lbl = document.getElementById('home-cooldown-label');
         if (ms <= 0) {
@@ -1226,6 +1265,7 @@
   const QUIZ_VERSION = '1';
 
   function start() {
+    clearCooldownTimer();
     step = 0;
     answers = [];
     sendEvent('quiz_started', { quiz_version: QUIZ_VERSION });
